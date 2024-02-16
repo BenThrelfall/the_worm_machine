@@ -307,15 +307,13 @@
 	</tr>
 	<tr>
 		<td><a href="AUAframeset.html" target="_parent">AUAL</a></td>
-		<td><font class="font8">A</font><font class="font0">mphid-associated </font><font class="font8">U</font><font class="font0">nknown Receptor </font><font class="font8">A <br>
-		</font><font class="font6">L</font><font class="font0">e</font>ft</td>
+		<td><font class="font8">A</font><font class="font0">mphid-associated </font><font class="font8">U</font><font class="font0">nknown Receptor </font><font class="font8">A <br> </font><font class="font6">L</font><font class="font0">e</font>ft</td>
 		<td>AB alpppppppp</td>
 		<td>Neuron, process runs with amphid processes but lacks ciliated ending</td>
 	</tr>
 	<tr>
 		<td><a href="AUAframeset.html" target="_parent">AUAR</a></td>
-		<td><font class="font8">A</font><font class="font0">mphid-associated </font><font class="font8">U</font><font class="font0">nknown Receptor </font><font class="font8">A</font><font class="font6"><br> 
-		  R</font>ight</td>
+		<td><font class="font8">A</font><font class="font0">mphid-associated </font><font class="font8">U</font><font class="font0">nknown Receptor </font><font class="font8">A</font><font class="font6"><br> R</font>ight</td>
 		<td>AB praaappppp</td>
 		<td>Neuron, process runs with amphid processes but lacks ciliated ending</td>
 	</tr>
@@ -1126,8 +1124,7 @@
 	</tr>
 	<tr>
 		<td><a href="NSMframeset.html" target="_parent">NSMR</a></td>
-		<td><font class="font8">N</font><font class="font0">euro</font><font class="font8">S</font><font class="font0">ecretory </font><font class="font8">M</font><font class="font0">otor Neuron (pharynx)</font><font class="font6"> <br>
-		  R</font>ight</td>
+		<td><font class="font8">N</font><font class="font0">euro</font><font class="font8">S</font><font class="font0">ecretory </font><font class="font8">M</font><font class="font0">otor Neuron (pharynx)</font><font class="font6"> <br> R</font>ight</td>
 		<td>AB araapppaav</td>
 		<td>Pharyngeal neurosecretory motorneuron, contain serotonin</td>
 	</tr>
@@ -2064,8 +2061,7 @@
       </tr>
       <tr>
         <td><a href="URAframeset.html" target="_parent">URADL</a></td>
-        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">A </font><font class="font8">&nbsp; </font><font class="font6">D</font><font class="font0">orsal</font> <font class="font6"><br>
-          L</font><font class="font0">e</font>ft</td>
+        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">A </font><font class="font8">&nbsp; </font><font class="font6">D</font><font class="font0">orsal</font> <font class="font6"><br> L</font><font class="font0">e</font>ft</td>
         <td>AB plaaaaaaa</td>
         <td>Ring motor neuron</td>
       </tr>
@@ -2077,15 +2073,13 @@
       </tr>
       <tr>
         <td><a href="URAframeset.html" target="_parent">URAVL</a></td>
-        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">A </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral <br>
-        </font></span></font><font class="font6">L</font><font class="font0">e</font>ft</td>
+        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">A </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral <br> </font></span></font><font class="font6">L</font><font class="font0">e</font>ft</td>
         <td>AB plpaaapaa</td>
         <td>Ring motor neuron</td>
       </tr>
       <tr>
         <td><a href="URAframeset.html" target="_parent">URAVR</a></td>
-        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">A </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral <br>
-        </font></span></font><font class="font6">R</font>ight</td>
+        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">A </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral <br> </font></span></font><font class="font6">R</font>ight</td>
         <td>AB prpaaapaa</td>
         <td>Ring motor neuron</td>
       </tr>
@@ -2129,15 +2123,13 @@
       </tr>
       <tr>
         <td><a href="URYframeset.html" target="_parent">URYVL</a></td>
-        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">Y </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral </font></span></font><font class="font6"><br>
-          L</font><font class="font0">e</font>ft</td>
+        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">Y </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral </font></span></font><font class="font6"><br> L</font><font class="font0">e</font>ft</td>
         <td>AB plpaaappp</td>
         <td>Neuron, presynaptic in ring, ending in head</td>
       </tr>
       <tr>
         <td><a href="URYframeset.html" target="_parent">URYVR</a></td>
-        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">Y </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral<br>
-        </font></span></font><font class="font6">R</font>ight</td>
+        <td><font class="font6">U</font><font class="font0">nknown </font><font class="font6">R</font><font class="font0">eceptor, not Ciliated </font><font class="font6">Y </font><font class="font0"><span class="excel20"><font class="font5"> </font><font class="font8">V</font><font class="font0">entral<br> </font></span></font><font class="font6">R</font>ight</td>
         <td>AB prpaaappp</td>
         <td>Neuron, presynaptic in ring, ending in head</td>
       </tr>
