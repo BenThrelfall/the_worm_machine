@@ -7,18 +7,50 @@ import time
 # Gap Junctions and Synapses
 ###
 
-def I_gap(i, big_V, big_G_gap):
+# Synapse coefficent
+def co_syn(big_G_syn, big_s):
+    sum = 0
+    for j in range(len(big_s)):
+        sum += big_G_syn[:, j] * big_s[j]
+    return sum    
+
+# Synapse intercept
+def int_syn(big_G_syn, big_s, big_E):
+    sum = 0
+    for j in range(len(big_s)):
+        sum += big_G_syn[:, j] * big_s[j] * big_E[j]
+    return sum    
+
+# Synapse current
+def I_syn(V_m, co, int):
+    return V_m * co - int
+
+# Gapjn coefficent
+def co_gap(big_G_gap):
+    return np.sum(big_G_gap, axis=1)
+
+# Gapjn intercept
+def int_gap(big_G_gap, big_V):
     sum = 0
     for j in range(len(big_V)):
-        sum += big_G_gap[i, j] * (big_V[i] - big_V[j])
+        sum += big_G_gap[:, j] * big_V[j]
 
     return sum
 
-def I_syn(i, big_V, big_E, big_s, big_G_syn):
-    sum = 0
-    for j in range(len(big_V)):
-        sum += big_G_syn[i, j] * big_s[j] * (big_V[i] - big_E[j])
-    return sum
+# Gapjn current
+def I_gap(V_m, co, int):
+    return V_m * co - int
+
+
+# Voltage limit
+def V_inf(co_syn, int_syn, co_gap, int_gap, I_in):
+    GE_leak = -350
+    G_leak = 10
+
+    top = GE_leak + int_syn + int_gap + I_in
+    bottom = G_leak + co_syn + co_gap
+
+    return top / bottom
 
 def delta_s(V_m, s_i):
     a_r = 1
@@ -62,11 +94,6 @@ def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
 
 class NeuronNetwork:
     def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=None):
-
-        # Flags
-        self.disable_gapjn = False
-        self.disable_syn = False
-        self.disable_leak = False
         
         # Time
         self.time = 0.0
@@ -91,9 +118,6 @@ class NeuronNetwork:
         else:
             self.big_E = big_E
 
-        # Indices (kinda silly)
-        self.indices = [i for i in range(len(big_V))]
-
         # Voltage Clamping
         if v_clamp is None:
             self.v_clamp = np.array([1 for i in big_V])
@@ -113,18 +137,30 @@ class NeuronNetwork:
     def step(self, time_step, input_current):
 
         # Calculate deltas
-        leak_current = I_leak(self.big_V) if not self.disable_leak else np.zeros_like(self.big_V)
-        gap_current = I_gap(self.indices, self.big_V, self.big_G_gap) if not self.disable_gapjn else np.zeros_like(self.big_V)
-        syn_current = I_syn(self.indices, self.big_V, self.big_E, self.big_s, self.big_G_syn) if not self.disable_syn else np.zeros_like(self.big_V)
-        
-        d_V_m = delta_V_m(self.big_V, leak_current, gap_current, syn_current, input_current)
+
+        leak_current = I_leak(self.big_V)
+
+        synapse_coeffiecnt = co_syn(self.big_G_syn, self.big_s)
+        synapse_intercept = int_syn(self.big_G_syn, self.big_s, self.big_E)
+        synapse_current = I_syn(self.big_V, synapse_coeffiecnt, synapse_intercept)
+
+        gap_coefficent = co_gap(self.big_G_gap)
+        gap_intercept = int_gap(self.big_G_gap, self.big_V)
+        gap_current = I_gap(self.big_V, gap_coefficent, gap_intercept)
+
+        V_infinity = V_inf(synapse_coeffiecnt, synapse_intercept, gap_coefficent, gap_intercept, input_current)
+        d_V_m = delta_V_m(self.big_V, leak_current, gap_current, synapse_current, input_current)
         d_s = delta_s(self.big_V, self.big_s)
-        
+
+        # Clamp
+        V_diff = np.abs(V_infinity - self.big_V)
+        voltage_step = (self.v_clamp * d_V_m) * time_step
+        voltage_step = np.clip(voltage_step, -V_diff, V_diff)
 
         # Update
         self.time += time_step
         self.big_s += d_s * time_step
-        self.big_V += (self.v_clamp * d_V_m) * time_step
+        self.big_V += voltage_step
         
         
         #Store
@@ -133,7 +169,7 @@ class NeuronNetwork:
         self.s_store.append(self.big_s.copy())
         self.leak_store.append(leak_current.copy())
         self.in_store.append(input_current.copy())
-        self.syn_store.append(syn_current.copy())
+        self.syn_store.append(synapse_current.copy())
         self.gap_store.append(gap_current.copy())
     
     def adv_run(self, delta_t, run_time, current_gen, show_progress=True):

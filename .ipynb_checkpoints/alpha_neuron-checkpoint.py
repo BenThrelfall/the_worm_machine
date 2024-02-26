@@ -61,8 +61,13 @@ def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
 ###
 
 class NeuronNetwork:
-    def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, labels=None):
+    def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=None):
 
+        # Flags
+        self.disable_gapjn = False
+        self.disable_syn = False
+        self.disable_leak = False
+        
         # Time
         self.time = 0.0
         
@@ -81,13 +86,19 @@ class NeuronNetwork:
         # Gap conductances
         self.big_G_gap = big_G_gap
 
-        if big_E == None:
+        if big_E is None:
             self.big_E = np.array([0 for V_m in big_V])
         else:
             self.big_E = big_E
 
         # Indices (kinda silly)
         self.indices = [i for i in range(len(big_V))]
+
+        # Voltage Clamping
+        if v_clamp is None:
+            self.v_clamp = np.array([1 for i in big_V])
+        else:
+            self.v_clamp = v_clamp
         
         # Storage
 
@@ -102,9 +113,9 @@ class NeuronNetwork:
     def step(self, time_step, input_current):
 
         # Calculate deltas
-        leak_current = I_leak(self.big_V)
-        gap_current = I_gap(self.indices, self.big_V, self.big_G_gap)
-        syn_current = I_syn(self.indices, self.big_V, self.big_E, self.big_s, self.big_G_syn)
+        leak_current = I_leak(self.big_V) if not self.disable_leak else np.zeros_like(self.big_V)
+        gap_current = I_gap(self.indices, self.big_V, self.big_G_gap) if not self.disable_gapjn else np.zeros_like(self.big_V)
+        syn_current = I_syn(self.indices, self.big_V, self.big_E, self.big_s, self.big_G_syn) if not self.disable_syn else np.zeros_like(self.big_V)
         
         d_V_m = delta_V_m(self.big_V, leak_current, gap_current, syn_current, input_current)
         d_s = delta_s(self.big_V, self.big_s)
@@ -113,7 +124,7 @@ class NeuronNetwork:
         # Update
         self.time += time_step
         self.big_s += d_s * time_step
-        self.big_V += d_V_m * time_step
+        self.big_V += (self.v_clamp * d_V_m) * time_step
         
         
         #Store
@@ -128,8 +139,6 @@ class NeuronNetwork:
     def adv_run(self, delta_t, run_time, current_gen, show_progress=True):
 
         time_range = int(run_time / delta_t)
-        start_index = (time_range * in_start).astype(int)
-        end_index = (time_range * in_end).astype(int)
 
         for i in range(time_range):
             if show_progress and i % (time_range // 10) == 0:
@@ -148,7 +157,15 @@ class NeuronNetwork:
                 
             self.step(delta_t, input_current)
 
-    def show_all_data(self, start=0, end=-1):
+    def report(self):
+        V_max = np.argmax(self.big_V)
+
+        print(f"V_max = {self.big_V[V_max]} ({V_max})")
+
+    def show_all_data(self, start=0, end=None):
+
+        if end is None:
+            end = len(self.t_store)
 
         voltage = np.array(self.V_store)
         leak = np.array(self.leak_store)
@@ -167,6 +184,28 @@ class NeuronNetwork:
             plt.plot(self.t_store[start:end-1], synapse[start:end, i], label=f'I_syn_{i}')
             plt.legend(loc='best')
             plt.show()
+
+    def show_data(self, n, start=0, end=None):
+
+        if end is None:
+            end = len(self.t_store)
+
+        voltage = np.array(self.V_store)
+        leak = np.array(self.leak_store)
+        input = np.array(self.in_store)
+        synapse = np.array(self.syn_store)
+        gap = np.array(self.gap_store)
+
+        plt.plot(self.t_store[start:end], voltage[start:end, n], label=f'V_m_{n}')
+        plt.legend(loc='best')
+        plt.show()
+        
+        plt.plot(self.t_store[start:end-1], leak[start:end, n], label=f'I_leak_{n}')
+        plt.plot(self.t_store[start:end-1], input[start:end, n], label=f'I_in_{n}')
+        plt.plot(self.t_store[start:end-1], synapse[start:end, n], label=f'I_syn_{n}')
+        plt.plot(self.t_store[start:end-1], gap[start:end, n], label=f'I_gap_{n}')
+        plt.legend(loc='best')
+        plt.show()
 
 
 
