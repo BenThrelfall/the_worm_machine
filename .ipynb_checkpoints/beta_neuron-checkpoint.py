@@ -195,8 +195,10 @@ class NeuronNetwork:
 
     def report(self):
         V_max = np.argmax(self.big_V)
+        V_min = np.argmax(-self.big_V)
 
         print(f"V_max = {self.big_V[V_max]} ({V_max})")
+        print(f"V_min = {self.big_V[V_min]} ({V_min})")
 
     def show_all_data(self, start=0, end=None):
 
