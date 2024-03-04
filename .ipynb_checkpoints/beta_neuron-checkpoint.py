@@ -93,7 +93,16 @@ def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
 ###
 
 class NeuronNetwork:
-    def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=None):
+    def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=[]):
+
+        self.labels = labels
+
+        if len(labels) > 0:
+            self.neurons = {}
+
+            for i in range(len(labels)):
+                self.neurons[labels[i]] = i 
+        
         
         # Time
         self.time = 0.0
@@ -133,6 +142,22 @@ class NeuronNetwork:
         self.syn_store = [] # synapse current
         self.gap_store = [] # gap curret 
         self.in_store = [] # input current
+
+    def get_neuron(self, name):
+        index = self.neurons[name]
+        return (self.big_V[index], self.big_s[index])
+
+    def set_neuron(self, name, v=None, s=None):
+
+        index = self.neurons[name]
+        
+        if not s:
+            s = self.big_s[index]
+        if not v:
+            v = self.big_V[index]
+
+        self.big_V[index] = v
+        self.big_s[index] = s
 
     def step(self, time_step, input_current):
 
@@ -197,6 +222,7 @@ class NeuronNetwork:
         V_max = np.argmax(self.big_V)
         V_min = np.argmax(-self.big_V)
 
+        print(f"Neurons {len(self.big_V)} ({len(self.labels)})")
         print(f"V_max = {self.big_V[V_max]} ({V_max})")
         print(f"V_min = {self.big_V[V_min]} ({V_min})")
 
