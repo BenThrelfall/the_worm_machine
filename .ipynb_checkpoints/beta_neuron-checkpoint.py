@@ -142,6 +142,7 @@ class NeuronNetwork:
         self.syn_store = [] # synapse current
         self.gap_store = [] # gap curret 
         self.in_store = [] # input current
+        self.V_inf_store = []
 
     def get_neuron(self, name):
         index = self.neurons[name]
@@ -196,6 +197,7 @@ class NeuronNetwork:
         self.in_store.append(input_current.copy())
         self.syn_store.append(synapse_current.copy())
         self.gap_store.append(gap_current.copy())
+        self.V_inf_store.append(V_infinity.copy())
     
     def adv_run(self, delta_t, run_time, current_gen, show_progress=True):
 
@@ -251,17 +253,26 @@ class NeuronNetwork:
 
     def show_data(self, n, start=0, end=None):
 
+        if type(n) is str:
+            n  = self.neurons[n]
+
         if end is None:
             end = len(self.t_store)
 
         voltage = np.array(self.V_store)
+        V_inf = np.array(self.V_inf_store)
         leak = np.array(self.leak_store)
         input = np.array(self.in_store)
         synapse = np.array(self.syn_store)
+        syn_gate = np.array(self.s_store)
         gap = np.array(self.gap_store)
 
         plt.plot(self.t_store[start:end], voltage[start:end, n], label=f'V_m_{n}')
+        plt.plot(self.t_store[start:end-1], V_inf[start:end, n], label=f'V_inf_{n}')
         plt.legend(loc='best')
+        plt.show()
+
+        plt.plot(self.t_store[start:end], syn_gate[start:end, n], label=f's_{n}')
         plt.show()
         
         plt.plot(self.t_store[start:end-1], leak[start:end, n], label=f'I_leak_{n}')
