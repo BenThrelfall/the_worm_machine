@@ -63,6 +63,14 @@ def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
 class NeuronNetwork:
     def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=None):
 
+        self.labels = labels
+
+        if len(labels) > 0:
+            self.neurons = {}
+
+            for i in range(len(labels)):
+                self.neurons[labels[i]] = i 
+        
         # Flags
         self.disable_gapjn = False
         self.disable_syn = False
@@ -110,6 +118,24 @@ class NeuronNetwork:
         self.gap_store = [] # gap curret 
         self.in_store = [] # input current
 
+    
+    def get_neuron(self, name):
+        index = self.neurons[name]
+        return (self.big_V[index], self.big_s[index])
+
+    def set_neuron(self, name, v=None, s=None):
+
+        index = self.neurons[name]
+        
+        if not s:
+            s = self.big_s[index]
+        if not v:
+            v = self.big_V[index]
+
+        self.big_V[index] = v
+        self.big_s[index] = s
+
+    
     def step(self, time_step, input_current):
 
         # Calculate deltas

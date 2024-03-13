@@ -160,7 +160,7 @@ class NeuronNetwork:
         self.big_V[index] = v
         self.big_s[index] = s
 
-    def step(self, time_step, input_current):
+    def step(self, time_step, input_current, limiter=True):
 
         # Calculate deltas
 
@@ -178,10 +178,13 @@ class NeuronNetwork:
         d_V_m = delta_V_m(self.big_V, leak_current, gap_current, synapse_current, input_current)
         d_s = delta_s(self.big_V, self.big_s)
 
-        # Clamp
-        V_diff = np.abs(V_infinity - self.big_V)
         voltage_step = (self.v_clamp * d_V_m) * time_step
-        voltage_step = np.clip(voltage_step, -V_diff, V_diff)
+        
+        if limiter:
+            # Clamp
+            V_diff = np.abs(V_infinity - self.big_V)
+            voltage_step = np.clip(voltage_step, -V_diff, V_diff)
+            
 
         # Update
         self.time += time_step
@@ -210,7 +213,7 @@ class NeuronNetwork:
             input_current = current_gen(self.time)
             self.step(delta_t, input_current)
 
-    def simple_run(self, delta_t, run_time, show_progress=True):
+    def simple_run(self, delta_t, run_time, show_progress=True, limiter=True):
         time_range = int(run_time / delta_t)
         input_current = np.array([0 for i in range(len(self.big_V))])
 
@@ -218,7 +221,7 @@ class NeuronNetwork:
             if show_progress and i % (time_range // 10) == 0:
                 print("#", end="")
                 
-            self.step(delta_t, input_current)
+            self.step(delta_t, input_current, limiter)
 
     def report(self):
         V_max = np.argmax(self.big_V)
