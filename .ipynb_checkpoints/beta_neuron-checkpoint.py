@@ -53,22 +53,22 @@ def V_inf(co_syn, int_syn, co_gap, int_gap, I_in):
     return top / bottom
 
 def delta_s(V_m, s_i):
-    a_r = 1
-    a_d = 5
+    a_r = 1.0
+    a_d = 5.0
     beta = 0.125
-    V_th = -15 #??
+    V_th = -15.0 #??
 
-    sig = 1 / (1 + np.exp(-beta * (V_m - V_th)))
+    sig = 1.0 / (1.0 + np.exp(-beta * (V_m - V_th)))
 
-    return a_r * sig * (1 - s_i) - a_d * s_i
+    return a_r * sig * (1.0 - s_i) - a_d * s_i
 
 # Simple/direct version
 def new_s(V_m):
-    a_r = 1
-    a_d = 5
+    a_r = 1.0
+    a_d = 5.0
     beta = 0.125
-    V_th = -15 #??
-    sig = 1 / (1 + np.exp(-beta * (V_m - V_th)))
+    V_th = -15.0 #??
+    sig = 1.0 / (1.0 + np.exp(-beta * (V_m - V_th)))
 
     return (a_r * sig) / (a_r * sig + a_d)
 
@@ -77,13 +77,13 @@ def new_s(V_m):
 ###
 
 def I_leak(V_m):
-    E_leak = -35 #mV
-    G_leak = 10 #pS I think
+    E_leak = -35.0 #mV
+    G_leak = 10.0 #pS I think
 
     return G_leak * (V_m - E_leak)
 
 def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
-    C_m = 1 #pF
+    C_m = 1.0 #pF
 
     current_sum = -I_leak - I_gap - I_syn + I_in
     return current_sum / C_m
