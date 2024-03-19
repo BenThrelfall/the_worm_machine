@@ -1,23 +1,6 @@
 import numpy as np
-import pandas as pd
-from matplotlib import pyplot as plt
-import json
-from sklearn.model_selection import train_test_split
 import torch
 from torch import nn, optim
-import time
-from torch.utils.data import DataLoader, TensorDataset
-
-
-def new_s(V_m):
-    a_r = 1
-    a_d = 5
-    beta = 0.125
-    V_th = -15 #??
-    sig = 1 / (1 + np.exp(-beta * (V_m - V_th)))
-
-    return (a_r * sig) / (a_r * sig + a_d)
-
 
 class BetaNeuronNet(nn.Module):
     def __init__(self, G_leak, E_leak, G_syn, E_syn, G_gap):
@@ -78,7 +61,16 @@ class BetaNeuronNet(nn.Module):
         sig = 1 / (1 + torch.exp(-beta * (Voltage - V_th)))
     
         return a_r * sig * (1 - gate) - a_d * gate
+
+    def calc_V_inf(self, co_syn, int_syn, co_gap, int_gap):
+        GE_leak = self.G_leak * self.E_leak
+        G_leak = self.G_leak
     
+        top = GE_leak + int_syn + int_gap
+        bottom = G_leak + co_syn + co_gap
+    
+        return top / bottom
+        
     def forward(self, big_V, big_s, time_step):
 
         leak_current = self.calc_I_leak(big_V)
@@ -94,25 +86,14 @@ class BetaNeuronNet(nn.Module):
         delta_V = self.calc_delta_V(big_V, leak_current, gap_current, syn_current)
         delta_s = self.calc_delta_s(big_V, big_s)
 
-        new_V = big_V + (delta_V * time_step)
+        V_inf = self.calc_V_inf(syn_co, syn_int, gap_co, gap_int)
+
+        voltage_step = delta_V * time_step
+        
+        V_diff = torch.abs(V_inf - big_V)
+        voltage_step = torch.clamp(voltage_step, -V_diff, V_diff)
+
+        new_V = big_V + voltage_step
         new_s = big_s + (delta_s * time_step)
         
         return new_V, new_s, leak_current, syn_current 
-
-
-%%timeit
-V = torch.from_numpy(np.array([40.0, -40.0]))
-s = torch.from_numpy(np.array([new_s(40.0), new_s(-40.0)]))
-G_leak = np.array([10.0 for V_m in V])
-E_leak = np.array([-35.0 for V_m in V])
-G_syn = np.array([[0.0, 50.0], [80.0, 0.0]])
-E_syn = np.array([0.0 for V_m in V])
-G_gap = np.array([[0.0, 100.0], [100.0, 0.0]])
-
-net = BetaNeuronNet(G_leak, E_leak, G_syn, E_syn, G_gap)
-
-for i in range(30 * 1000):
-    V, s, leak, syn = net(V, s, 0.001)
-
-
-
