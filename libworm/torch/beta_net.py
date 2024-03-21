@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn, optim
+from libworm.data.neuron import gaba_list
 
 class BetaNeuronNet(nn.Module):
     def __init__(self, G_leak, E_leak, G_syn, E_syn, G_gap):
@@ -97,3 +98,42 @@ class BetaNeuronNet(nn.Module):
         new_s = big_s + (delta_s * time_step)
         
         return new_V, new_s, leak_current, syn_current 
+
+def from_connectome(chemical, gapjn, neurons,
+                    G_syn_value = 100.0, 
+                    E_syn_ex_value = 0.0,
+                    E_syn_in_value = -45.0,
+                    G_gap_value = 100.0,
+                    G_leak_value = 10.0,
+                    E_leak_value = -35.0):
+    
+    G_syn = []
+    E_syn = []
+    G_gapjn = []
+    
+    for cell in neurons:
+        syn_E = E_syn_ex_value if cell not in gaba_list else E_syn_in_value
+        E_syn.append(syn_E)
+    
+    for i, to_cell in enumerate(neurons):
+        G_syn.append([])
+        G_gapjn.append([])
+        for j, from_cell in enumerate(neurons):
+            syn_value = G_syn_value if chemical[from_cell][to_cell] > 0 else 0.0
+            G_syn[i].append(syn_value)
+    
+            gap_value = G_gap_value if gapjn[from_cell][to_cell] > 0 else 0.0
+            G_gapjn[i].append(gap_value)
+    
+    G_syn = np.array(G_syn)
+    E_syn = np.array(E_syn)
+    G_gapjn = np.array(G_gapjn)
+    G_leak = np.array([G_leak_value for cell in neurons])
+    E_leak = np.array([E_leak_value for cell in neurons])
+    
+
+    return BetaNeuronNet(G_leak, E_leak, G_syn, E_syn, G_gapjn)
+
+
+
+
