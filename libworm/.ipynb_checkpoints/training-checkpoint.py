@@ -40,10 +40,10 @@ def basic_train(model, criterion, optimizer, points, labels,
                     voltage, gates,_,_ = model(voltage, gates, timestep)
                     sim_time += timestep
 
+            
             while sim_time < next_timestamp:
                 voltage, gates,_,_ = model(voltage, gates, timestep)
                 sim_time += timestep
-
 
             final_output = voltage[:, :labels_batch.shape[1]]
             
