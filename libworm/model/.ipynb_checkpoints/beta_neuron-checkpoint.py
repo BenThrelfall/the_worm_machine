@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import time
+from libworm.data.neuron import gaba_list
 
 ###
 # Gap Junctions and Synapses
@@ -18,7 +19,7 @@ def co_syn(big_G_syn, big_s):
 def int_syn(big_G_syn, big_s, big_E):
     sum = 0
     for j in range(len(big_s)):
-        sum += big_G_syn[:, j] * big_s[j] * big_E[j]
+        sum += big_G_syn[:, j] * big_s[j] * big_E[:, j]
     return sum    
 
 # Synapse current
@@ -76,15 +77,11 @@ def new_s(V_m):
 # Leak Current and Voltage
 ###
 
-def I_leak(V_m):
-    E_leak = -35.0 #mV
-    G_leak = 10.0 #pS I think
-
+def I_leak(V_m, G_leak = 10.0 ,E_leak = -35.0):
     return G_leak * (V_m - E_leak)
 
 def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
     C_m = 1.0 #pF
-
     current_sum = -I_leak - I_gap - I_syn + I_in
     return current_sum / C_m
 
@@ -93,9 +90,11 @@ def delta_V_m(V_m, I_leak, I_gap, I_syn, I_in):
 ###
 
 class NeuronNetwork:
-    def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=[]):
+    def __init__(self, big_V, big_G_syn, big_G_gap, big_E = None, big_s = None, v_clamp=None, labels=[], G_leak = 10.0, E_leak = -35.0):
 
         self.labels = labels
+
+        self.store_data = True
 
         if len(labels) > 0:
             self.neurons = {}
@@ -103,6 +102,8 @@ class NeuronNetwork:
             for i in range(len(labels)):
                 self.neurons[labels[i]] = i 
         
+        self.G_leak = G_leak
+        self.E_leak = E_leak
         
         # Time
         self.time = 0.0
@@ -123,7 +124,7 @@ class NeuronNetwork:
         self.big_G_gap = big_G_gap
 
         if big_E is None:
-            self.big_E = np.array([0 for V_m in big_V])
+            self.big_E = np.array([[0] * len(big_V) for V_m in big_V])
         else:
             self.big_E = big_E
 
@@ -164,7 +165,7 @@ class NeuronNetwork:
 
         # Calculate deltas
 
-        leak_current = I_leak(self.big_V)
+        leak_current = I_leak(self.big_V, self.G_leak, self.E_leak)
 
         synapse_coeffiecnt = co_syn(self.big_G_syn, self.big_s)
         synapse_intercept = int_syn(self.big_G_syn, self.big_s, self.big_E)
@@ -193,14 +194,15 @@ class NeuronNetwork:
         
         
         #Store
-        self.t_store.append(self.time)
-        self.V_store.append(self.big_V.copy())
-        self.s_store.append(self.big_s.copy())
-        self.leak_store.append(leak_current.copy())
-        self.in_store.append(input_current.copy())
-        self.syn_store.append(synapse_current.copy())
-        self.gap_store.append(gap_current.copy())
-        self.V_inf_store.append(V_infinity.copy())
+        if(self.store_data):
+            self.t_store.append(self.time)
+            self.V_store.append(self.big_V.copy())
+            self.s_store.append(self.big_s.copy())
+            self.leak_store.append(leak_current.copy())
+            self.in_store.append(input_current.copy())
+            self.syn_store.append(synapse_current.copy())
+            self.gap_store.append(gap_current.copy())
+            self.V_inf_store.append(V_infinity.copy())
     
     def adv_run(self, delta_t, run_time, current_gen, show_progress=True):
 
@@ -284,6 +286,46 @@ class NeuronNetwork:
         plt.plot(self.t_store[start:end-1], gap[start:end, n], label=f'I_gap_{n}')
         plt.legend(loc='best')
         plt.show()
+
+def from_connectome(chemical, gapjn, neurons,
+                    G_syn_value = 100.0, 
+                    E_syn_ex_value = 0.0,
+                    E_syn_in_value = -45.0,
+                    G_gap_value = 100.0,
+                    G_leak_value = 10.0,
+                    E_leak_value = -35.0,
+                    V_value = -35.0):
+    
+    G_syn = []
+    E_syn = []
+    G_gapjn = []
+
+    # TODO: Check this is the correct order
+    for cell in neurons:
+        syn_E = E_syn_ex_value if cell not in gaba_list else E_syn_in_value
+        E_syn.append([syn_E] * len(neurons))
+    
+    for i, to_cell in enumerate(neurons):
+        G_syn.append([])
+        G_gapjn.append([])
+        for j, from_cell in enumerate(neurons):
+            syn_value = G_syn_value if chemical[from_cell][to_cell] > 0 else 0.0
+            G_syn[i].append(syn_value)
+    
+            gap_value = G_gap_value if gapjn[from_cell][to_cell] > 0 else 0.0
+            G_gapjn[i].append(gap_value)
+    
+    G_syn = np.array(G_syn)
+    E_syn = np.array(E_syn)
+    G_gapjn = np.array(G_gapjn)
+    G_leak = np.array([G_leak_value for cell in neurons])
+    E_leak = np.array([E_leak_value for cell in neurons])
+    big_V = np.array([V_value for cell in neurons])
+    
+
+    return NeuronNetwork(big_V, G_syn, G_gapjn, E_syn, labels=neurons, G_leak = G_leak, E_leak = E_leak)
+
+
 
 
 
