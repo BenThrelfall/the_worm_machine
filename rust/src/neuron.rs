@@ -1,11 +1,11 @@
 use itertools::izip;
 
 pub struct Network {
-    syn_co: Vec<f64>,
-    syn_int: Vec<f64>,
-    gap_co: Vec<f64>,
-    gap_int: Vec<f64>,
-    leak_int: Vec<f64>,
+    pub syn_co: Vec<f64>,
+    pub syn_int: Vec<f64>,
+    pub gap_co: Vec<f64>,
+    pub gap_int: Vec<f64>,
+    pub leak_int: Vec<f64>,
 
     pub syn_indices: Vec<Vec<usize>>,
     pub syn_g: Vec<Vec<f64>>,

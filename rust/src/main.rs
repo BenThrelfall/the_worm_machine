@@ -3,17 +3,19 @@ use std::{fs::File, io::BufReader, os::unix::raw::time_t};
 use neuron::Network;
 use serde::{Deserialize, Serialize};
 
-mod neuron;
+use crate::{evolution::{evaluate, World}, factory::Factory};
+
 mod evolution;
+mod factory;
+mod neuron;
 
 #[derive(Serialize, Deserialize)]
-struct Frame{
-    pub time : f64,
-    pub data : Vec<f64>,
+struct Frame {
+    pub time: f64,
+    pub data: Vec<f64>,
 }
 
 fn main() {
-
     let neurons: Vec<String>;
     let flat_g_syn: Vec<f64>;
     let flat_e_syn: Vec<f64>;
@@ -21,61 +23,57 @@ fn main() {
 
     let time_trace: Vec<Frame>;
 
-    let file =  File::open("processed_data/time_trace.json").unwrap();
+    let file = File::open("processed_data/time_trace.json").unwrap();
     let buffer = BufReader::new(file);
     time_trace = serde_json::from_reader(buffer).unwrap();
 
-    let file =  File::open("processed_data/default_g_syn.json").unwrap();
+    let file = File::open("processed_data/default_g_syn.json").unwrap();
     let buffer = BufReader::new(file);
     flat_g_syn = serde_json::from_reader(buffer).unwrap();
 
-    let file =  File::open("processed_data/default_e_syn.json").unwrap();
+    let file = File::open("processed_data/default_e_syn.json").unwrap();
     let buffer = BufReader::new(file);
     flat_e_syn = serde_json::from_reader(buffer).unwrap();
 
-    let file =  File::open("processed_data/default_g_gap.json").unwrap();
+    let file = File::open("processed_data/default_g_gap.json").unwrap();
     let buffer = BufReader::new(file);
     flat_g_gap = serde_json::from_reader(buffer).unwrap();
 
-    let file =  File::open("processed_data/neurons.json").unwrap();
+    let file = File::open("processed_data/neurons.json").unwrap();
     let buffer = BufReader::new(file);
-    neurons= serde_json::from_reader(buffer).unwrap();
+    neurons = serde_json::from_reader(buffer).unwrap();
 
     let mut full_syn_g = Vec::new();
     let mut full_syn_e = Vec::new();
     let mut full_gap_g = Vec::new();
 
-    for i in 0..neurons.len(){
-
+    for i in 0..neurons.len() {
         full_gap_g.push(Vec::new());
         full_syn_g.push(Vec::new());
         full_syn_e.push(Vec::new());
 
-        for j in 0..neurons.len(){
+        for j in 0..neurons.len() {
             full_gap_g[i].push(flat_g_gap[i * neurons.len() + j]);
             full_syn_g[i].push(flat_g_syn[i * neurons.len() + j]);
             full_syn_e[i].push(flat_e_syn[i * neurons.len() + j]);
         }
     }
 
-    let gate_beta = vec![0.125f64; 280];
-    let gate_adjust = vec![-15f64; 280];
-    let leak_g = vec![10f64; 280];
-    let leak_e = vec![-35f64; 280];
-
-    let mut model = Network::new(full_syn_g, full_syn_e, gate_beta, gate_adjust, leak_g, leak_e, full_gap_g);
-
-    let voltage = vec![-60f64; 280];
-    let gates = vec![0f64; 280];
+    let factory = Factory::new(full_syn_g, full_gap_g);
+    let specification = factory.get_specification();
 
     use std::time::Instant;
     let now = Instant::now();
 
-    let result = evolution::evaluate(&mut model, 15, &time_trace);
+    let mut world = World::new();
+    let population = world.random_population(&specification, 50);
+    let results: Vec<f64> = population.iter()
+                            .map(|genome| factory.build(genome.clone()))
+                            .map(|mut model| evaluate(&mut model, 20, &time_trace))
+                            .collect();
 
     let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
 
-    
-    println!("{:?}", result);
+    println!("Elapsed: {:.2?}", elapsed);
+    println!("{:?}", results);
 }
