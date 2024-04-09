@@ -1,8 +1,16 @@
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, os::unix::raw::time_t};
 
 use neuron::Network;
+use serde::{Deserialize, Serialize};
 
 mod neuron;
+mod evolution;
+
+#[derive(Serialize, Deserialize)]
+struct Frame{
+    pub time : f64,
+    pub data : Vec<f64>,
+}
 
 fn main() {
 
@@ -10,6 +18,12 @@ fn main() {
     let flat_g_syn: Vec<f64>;
     let flat_e_syn: Vec<f64>;
     let flat_g_gap: Vec<f64>;
+
+    let time_trace: Vec<Frame>;
+
+    let file =  File::open("processed_data/time_trace.json").unwrap();
+    let buffer = BufReader::new(file);
+    time_trace = serde_json::from_reader(buffer).unwrap();
 
     let file =  File::open("processed_data/default_g_syn.json").unwrap();
     let buffer = BufReader::new(file);
@@ -57,11 +71,11 @@ fn main() {
     use std::time::Instant;
     let now = Instant::now();
 
-    let results = model.run(voltage, gates, 0.001, 1.0);
+    let result = evolution::evaluate(&mut model, 15, &time_trace);
 
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
 
     
-    println!("{:?}", results.0);
+    println!("{:?}", result);
 }
