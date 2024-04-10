@@ -63,24 +63,28 @@ fn main() {
     let specification = factory.get_specification();
 
     let mut world = World::new();
-    let population = world.random_population(&specification, 50);
+    let mut population = world.random_population(&specification, 100);
 
     use std::time::Instant;
     let now = Instant::now();
 
-    let results: Vec<f64> = population.iter()
-                            .map(|genome| factory.build(genome.clone()))
-                            .map(|mut model| evaluate(&mut model, 20, &time_trace))
-                            .collect();
+    for i in 0..20{
+        let results: Vec<f64> = population.iter()
+        .map(|genome| factory.build(genome.clone()))
+        .map(|mut model| evaluate(&mut model, 20, &time_trace))
+        .collect();
 
-    let total: f64 = results.iter().sum();
+        let total: f64 = results.iter().sum();
+        println!("Total Error {}", total);
 
-    let selection = world.selection(&population, &results, 15);
+        population = world.selection(&population, &results, 10);
+
+        world.crossover(&mut population);
+    }
 
 
 
     let elapsed = now.elapsed();
 
     println!("Elapsed: {:.2?}", elapsed);
-    println!("{:?}", results);
 }

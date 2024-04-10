@@ -18,6 +18,20 @@ pub struct Genome {
     pub leak_e: Vec<f64>,
 }
 
+impl Genome {
+    pub fn new() -> Self {
+        Genome {
+            flat_syn_g: Vec::new(),
+            flat_syn_e: Vec::new(),
+            flat_gap_g: Vec::new(),
+            gate_beta: Vec::new(),
+            gate_adjust: Vec::new(),
+            leak_g: Vec::new(),
+            leak_e: Vec::new(),
+        }
+    }
+}
+
 pub struct World {
     rng: Pcg32,
 }
@@ -87,6 +101,90 @@ impl World {
             .take(count)
             .collect()
     }
+
+    pub fn crossover(&mut self, population: &mut Vec<Genome>) {
+
+        let inital_len = population.len();
+
+        for i in 0..inital_len {
+            for j in i+1..inital_len {
+                if i == j {continue;}
+                let (a_child, b_child) = self.random_breed(&population[i], &population[j]);
+                population.push(a_child);
+                population.push(b_child);
+            }
+        }
+    }
+
+    fn random_breed(&mut self, x_parent: &Genome, y_parent: &Genome) -> (Genome, Genome) {
+        let mut a_child = Genome::new();
+        let mut b_child = Genome::new();
+
+        for i in 0..x_parent.flat_syn_g.len() {
+            if self.rng.gen() {
+                a_child.flat_syn_g.push(x_parent.flat_syn_g[i]);
+                a_child.flat_syn_e.push(x_parent.flat_syn_e[i]);
+
+                b_child.flat_syn_g.push(y_parent.flat_syn_g[i]);
+                b_child.flat_syn_e.push(y_parent.flat_syn_e[i]);
+            } else {
+                b_child.flat_syn_g.push(x_parent.flat_syn_g[i]);
+                b_child.flat_syn_e.push(x_parent.flat_syn_e[i]);
+
+                a_child.flat_syn_g.push(y_parent.flat_syn_g[i]);
+                a_child.flat_syn_e.push(y_parent.flat_syn_e[i]);
+            }
+        }
+
+        for i in 0..x_parent.leak_g.len() {
+            if self.rng.gen() {
+                a_child.leak_g.push(x_parent.leak_g[i]);
+                a_child.leak_e.push(x_parent.leak_e[i]);
+
+                b_child.leak_g.push(y_parent.leak_g[i]);
+                b_child.leak_e.push(y_parent.leak_e[i]);
+            } else {
+                b_child.leak_g.push(x_parent.leak_g[i]);
+                b_child.leak_e.push(x_parent.leak_e[i]);
+
+                a_child.leak_g.push(y_parent.leak_g[i]);
+                a_child.leak_e.push(y_parent.leak_e[i]);
+            }
+        }
+
+        for i in 0..x_parent.gate_beta.len() {
+            if self.rng.gen() {
+                a_child.gate_beta.push(x_parent.gate_beta[i]);
+                a_child.gate_adjust.push(x_parent.gate_adjust[i]);
+
+                b_child.gate_beta.push(y_parent.gate_beta[i]);
+                b_child.gate_adjust.push(y_parent.gate_adjust[i]);
+            } else {
+                b_child.gate_beta.push(x_parent.gate_beta[i]);
+                b_child.gate_adjust.push(x_parent.gate_adjust[i]);
+
+                a_child.gate_beta.push(y_parent.gate_beta[i]);
+                a_child.gate_adjust.push(y_parent.gate_adjust[i]);
+            }
+        }
+
+        for i in 0..x_parent.flat_gap_g.len() {
+            if self.rng.gen() {
+                a_child.flat_gap_g.push(x_parent.flat_gap_g[i]);
+
+                b_child.flat_gap_g.push(y_parent.flat_gap_g[i]);
+            } else {
+                b_child.flat_gap_g.push(x_parent.flat_gap_g[i]);
+
+                a_child.flat_gap_g.push(y_parent.flat_gap_g[i]);
+            }
+        }
+
+        
+
+        (a_child, b_child)
+    }
+
 }
 
 pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f64 {
