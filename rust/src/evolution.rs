@@ -1,5 +1,6 @@
-use rand_pcg::Pcg32;
+use itertools::Itertools;
 use rand::prelude::*;
+use rand_pcg::Pcg32;
 
 use crate::{factory::Specification, neuron::Network, Frame};
 
@@ -22,30 +23,46 @@ pub struct World {
 }
 
 impl World {
-
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         let rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-        World{
-            rng
-        }
+        World { rng }
     }
 
-    pub fn random_population(&mut self, specification: &Specification, count: usize) -> Vec<Genome> {
-        (0..count).map(|_| self.random_genome(specification)).collect()
+    pub fn random_population(
+        &mut self,
+        specification: &Specification,
+        count: usize,
+    ) -> Vec<Genome> {
+        (0..count)
+            .map(|_| self.random_genome(specification))
+            .collect()
     }
 
-    fn random_genome(&mut self, specification: &Specification) -> Genome{
+    fn random_genome(&mut self, specification: &Specification) -> Genome {
+        let flat_syn_g = (0..specification.syn_len)
+            .map(|_| self.rng.gen_range(0f64..100.0))
+            .collect();
+        let flat_syn_e = (0..specification.syn_len)
+            .map(|_| self.rng.gen_range(-100f64..100.0))
+            .collect();
+        let flat_gap_g = (0..specification.gap_len)
+            .map(|_| self.rng.gen_range(0f64..100.0))
+            .collect();
 
-        let flat_syn_g = (0..specification.syn_len).map(|_| self.rng.gen_range(0f64..100.0)).collect();
-        let flat_syn_e = (0..specification.syn_len).map(|_| self.rng.gen_range(-100f64..100.0)).collect();
-        let flat_gap_g = (0..specification.gap_len).map(|_| self.rng.gen_range(0f64..100.0)).collect();
+        let gate_beta = (0..specification.model_len)
+            .map(|_| self.rng.gen_range(0f64..1.0))
+            .collect();
+        let gate_adjust = (0..specification.model_len)
+            .map(|_| self.rng.gen_range(-50f64..50.0))
+            .collect();
+        let leak_g = (0..specification.model_len)
+            .map(|_| self.rng.gen_range(0f64..100.0))
+            .collect();
+        let leak_e = (0..specification.model_len)
+            .map(|_| self.rng.gen_range(-100f64..100.0))
+            .collect();
 
-        let gate_beta = (0..specification.model_len).map(|_| self.rng.gen_range(0f64..1.0)).collect();
-        let gate_adjust = (0..specification.model_len).map(|_| self.rng.gen_range(-50f64..50.0)).collect();
-        let leak_g = (0..specification.model_len).map(|_| self.rng.gen_range(0f64..100.0)).collect();
-        let leak_e = (0..specification.model_len).map(|_| self.rng.gen_range(-100f64..100.0)).collect();
-
-        Genome{
+        Genome {
             flat_syn_g,
             flat_syn_e,
             flat_gap_g,
@@ -54,6 +71,21 @@ impl World {
             leak_g,
             leak_e,
         }
+    }
+
+    pub fn selection(
+        &mut self,
+        population: &Vec<Genome>,
+        results: &Vec<f64>,
+        count: usize,
+    ) -> Vec<Genome> {
+        population
+            .iter()
+            .zip(results)
+            .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .map(|x| x.0.clone())
+            .take(count)
+            .collect()
     }
 }
 

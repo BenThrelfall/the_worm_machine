@@ -62,15 +62,22 @@ fn main() {
     let factory = Factory::new(full_syn_g, full_gap_g);
     let specification = factory.get_specification();
 
+    let mut world = World::new();
+    let population = world.random_population(&specification, 50);
+
     use std::time::Instant;
     let now = Instant::now();
 
-    let mut world = World::new();
-    let population = world.random_population(&specification, 50);
     let results: Vec<f64> = population.iter()
                             .map(|genome| factory.build(genome.clone()))
                             .map(|mut model| evaluate(&mut model, 20, &time_trace))
                             .collect();
+
+    let total: f64 = results.iter().sum();
+
+    let selection = world.selection(&population, &results, 15);
+
+
 
     let elapsed = now.elapsed();
 
