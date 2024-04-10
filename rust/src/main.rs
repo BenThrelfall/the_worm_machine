@@ -1,9 +1,13 @@
 use std::{fs::File, io::BufReader, os::unix::raw::time_t};
 
 use neuron::Network;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{evolution::{evaluate, World}, factory::Factory};
+use crate::{
+    evolution::{evaluate, World},
+    factory::Factory,
+};
 
 mod evolution;
 mod factory;
@@ -16,16 +20,24 @@ struct Frame {
 }
 
 fn main() {
+    std::env::set_var("RUST_BACKTRACE", "1");
+
     let neurons: Vec<String>;
     let flat_g_syn: Vec<f64>;
     let flat_e_syn: Vec<f64>;
     let flat_g_gap: Vec<f64>;
 
-    let time_trace: Vec<Frame>;
+    let mut time_trace: Vec<Frame>;
 
     let file = File::open("processed_data/time_trace.json").unwrap();
     let buffer = BufReader::new(file);
     time_trace = serde_json::from_reader(buffer).unwrap();
+
+    for frame in time_trace.iter_mut() {
+        for point in frame.data.iter_mut() {
+            *point *= 10.0;
+        }
+    }
 
     let file = File::open("processed_data/default_g_syn.json").unwrap();
     let buffer = BufReader::new(file);
@@ -68,11 +80,15 @@ fn main() {
     use std::time::Instant;
     let now = Instant::now();
 
-    for i in 0..20{
-        let results: Vec<f64> = population.iter()
-        .map(|genome| factory.build(genome.clone()))
-        .map(|mut model| evaluate(&mut model, 20, &time_trace))
-        .collect();
+    let heat = 1f64;
+
+    for i in 0..3 {
+        
+        let results: Vec<f64> = population
+            .par_iter_mut()
+            .map(|genome| factory.build(genome.clone()))
+            .map(|mut model| evaluate(&mut model, 20, &time_trace))
+            .collect();
 
         let total: f64 = results.iter().sum();
         println!("Total Error {}", total);
@@ -80,9 +96,8 @@ fn main() {
         population = world.selection(&population, &results, 10);
 
         world.crossover(&mut population);
+        world.mutate(&mut population, 0.25, 0.25, heat);
     }
-
-
 
     let elapsed = now.elapsed();
 

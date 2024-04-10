@@ -116,6 +116,38 @@ impl World {
         }
     }
 
+    pub fn mutate(&mut self, population: &mut Vec<Genome>, genome_rate: f64, dna_rate: f64, heat: f64){
+        for genome in population{
+            
+            if self.rng.gen_bool(genome_rate){
+                self.mutate_genome(genome, dna_rate, heat);
+            }
+
+        }
+    }
+
+    fn mutate_genome(&mut self, genome: &mut Genome, rate: f64, heat: f64){
+        self.mutate_vec(&mut genome.flat_gap_g, rate, -100.0, 100.0, 1.0, 500.0, heat);
+
+        self.mutate_vec(&mut genome.flat_syn_g, rate, -100.0, 100.0, 1.0, 500.0, heat);
+        self.mutate_vec(&mut genome.flat_syn_e, rate, -100.0, 100.0, -500.0, 500.0, heat);
+
+        self.mutate_vec(&mut genome.leak_g, rate, -100.0, 100.0, 1.0, 100.0, heat);
+        self.mutate_vec(&mut genome.leak_e, rate, -100.0, 100.0, -500.0, 500.0, heat);
+
+        self.mutate_vec(&mut genome.gate_beta, rate, -1.0, 1.0, 0.0, 10.0, heat);
+        self.mutate_vec(&mut genome.gate_adjust, rate, -100.0, 100.0, -100.0, 100.0, heat);
+    }
+
+    fn mutate_vec(&mut self, vec: &mut Vec<f64>, rate: f64, delta_min: f64, delta_max: f64, bound_min: f64, bound_max: f64, heat: f64){
+        for item in vec{
+            if self.rng.gen_bool(rate){
+                *item += self.rng.gen_range(delta_min..delta_max) * heat;
+                *item = item.clamp(bound_min, bound_max);
+            }
+        }
+    }
+
     fn random_breed(&mut self, x_parent: &Genome, y_parent: &Genome) -> (Genome, Genome) {
         let mut a_child = Genome::new();
         let mut b_child = Genome::new();
