@@ -1,3 +1,5 @@
+use std::ops::{Mul, Neg};
+
 use itertools::Itertools;
 use rand::prelude::*;
 use rand_pcg::Pcg32;
@@ -104,12 +106,13 @@ impl World {
     }
 
     pub fn crossover(&mut self, population: &mut Vec<Genome>) {
-
         let inital_len = population.len();
 
         for i in 0..inital_len {
-            for j in i+1..inital_len {
-                if i == j {continue;}
+            for j in i + 1..inital_len {
+                if i == j {
+                    continue;
+                }
                 let (a_child, b_child) = self.random_breed(&population[i], &population[j]);
                 population.push(a_child);
                 population.push(b_child);
@@ -117,32 +120,77 @@ impl World {
         }
     }
 
-    pub fn mutate(&mut self, population: &mut Vec<Genome>, genome_rate: f64, dna_rate: f64, heat: f64){
-        for genome in population{
-            
-            if self.rng.gen_bool(genome_rate){
+    pub fn mutate(
+        &mut self,
+        population: &mut Vec<Genome>,
+        genome_rate: f64,
+        dna_rate: f64,
+        heat: f64,
+    ) {
+        for genome in population {
+            if self.rng.gen_bool(genome_rate) {
                 self.mutate_genome(genome, dna_rate, heat);
             }
-
         }
     }
 
-    fn mutate_genome(&mut self, genome: &mut Genome, rate: f64, heat: f64){
-        self.mutate_vec(&mut genome.flat_gap_g, rate, -100.0, 100.0, 1.0, 500.0, heat);
+    fn mutate_genome(&mut self, genome: &mut Genome, rate: f64, heat: f64) {
+        self.mutate_vec(
+            &mut genome.flat_gap_g,
+            rate,
+            -100.0,
+            100.0,
+            1.0,
+            500.0,
+            heat,
+        );
 
-        self.mutate_vec(&mut genome.flat_syn_g, rate, -100.0, 100.0, 1.0, 500.0, heat);
-        self.mutate_vec(&mut genome.flat_syn_e, rate, -100.0, 100.0, -500.0, 500.0, heat);
+        self.mutate_vec(
+            &mut genome.flat_syn_g,
+            rate,
+            -100.0,
+            100.0,
+            1.0,
+            500.0,
+            heat,
+        );
+        self.mutate_vec(
+            &mut genome.flat_syn_e,
+            rate,
+            -100.0,
+            100.0,
+            -500.0,
+            500.0,
+            heat,
+        );
 
         self.mutate_vec(&mut genome.leak_g, rate, -100.0, 100.0, 1.0, 100.0, heat);
         self.mutate_vec(&mut genome.leak_e, rate, -100.0, 100.0, -500.0, 500.0, heat);
 
         self.mutate_vec(&mut genome.gate_beta, rate, -1.0, 1.0, 0.0, 10.0, heat);
-        self.mutate_vec(&mut genome.gate_adjust, rate, -100.0, 100.0, -100.0, 100.0, heat);
+        self.mutate_vec(
+            &mut genome.gate_adjust,
+            rate,
+            -100.0,
+            100.0,
+            -100.0,
+            100.0,
+            heat,
+        );
     }
 
-    fn mutate_vec(&mut self, vec: &mut Vec<f64>, rate: f64, delta_min: f64, delta_max: f64, bound_min: f64, bound_max: f64, heat: f64){
-        for item in vec{
-            if self.rng.gen_bool(rate){
+    fn mutate_vec(
+        &mut self,
+        vec: &mut Vec<f64>,
+        rate: f64,
+        delta_min: f64,
+        delta_max: f64,
+        bound_min: f64,
+        bound_max: f64,
+        heat: f64,
+    ) {
+        for item in vec {
+            if self.rng.gen_bool(rate) {
                 *item += self.rng.gen_range(delta_min..delta_max) * heat;
                 *item = item.clamp(bound_min, bound_max);
             }
@@ -213,11 +261,8 @@ impl World {
             }
         }
 
-        
-
         (a_child, b_child)
     }
-
 }
 
 pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f64 {
@@ -237,7 +282,7 @@ pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f
     let start_index = start_index + 15;
     let mut error = 0f64;
 
-    for i in 0..15 {
+    for i in 0..60 {
         let runtime = data[start_index + i + 1].time - data[start_index + i].time;
         let points = data[start_index + i].data.clone();
 
@@ -253,7 +298,53 @@ pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f
     return error;
 }
 
-pub fn predict(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+pub fn evaluate_std(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f64 {
+    let model_size = model.leak_g.len();
+    let mut voltage: Vec<f64> = (0..model_size).map(|_| DEFAULT_VOLTAGE).collect();
+    let mut gates: Vec<f64> = (0..model_size).map(|_| DEFAULT_GATE).collect();
+
+    for i in 0..15 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+        let points = data[start_index + i].data.clone();
+
+        voltage.splice(..points.len(), points);
+
+        (voltage, gates) = model.run(voltage, gates, 0.01, runtime);
+    }
+
+    let start_index = start_index + 15;
+
+    for i in 0..5 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+
+        (voltage, gates) = model.run(voltage, gates, 0.01, runtime);
+    }
+
+    let start_index = start_index + 5;
+    let mut error = 0f64;
+    let mut memory = Vec::new();
+
+    for i in 0..20 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+
+        (voltage, gates) = model.run(voltage, gates, 0.01, runtime);
+
+        memory.push(voltage.clone());
+    }
+
+    for i in 0..voltage.len(){
+        let mean = memory.iter().map(|frame| frame[i]).sum::<f64>() / memory.len() as f64;
+        error += (memory.iter().map(|frame| (frame[i] - mean).powf(2.0)).sum::<f64>() / memory.len() as f64).mul(0.1).neg().exp();
+    }
+
+    return error;
+}
+
+pub fn predict(
+    model: &mut Network,
+    start_index: usize,
+    data: &Vec<Frame>,
+) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
     let model_size = model.leak_g.len();
     let mut voltage: Vec<f64> = (0..model_size).map(|_| DEFAULT_VOLTAGE).collect();
     let mut gates: Vec<f64> = (0..model_size).map(|_| DEFAULT_GATE).collect();

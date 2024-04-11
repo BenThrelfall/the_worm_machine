@@ -17,6 +17,7 @@ def co_syn(big_G_syn, big_s):
 
 # Synapse intercept
 def int_syn(big_G_syn, big_s, big_E):
+    
     sum = 0
     for j in range(len(big_s)):
         sum += big_G_syn[:, j] * big_s[j] * big_E[:, j]
@@ -248,18 +249,43 @@ class NeuronNetwork:
         input = np.array(self.in_store)
         synapse = np.array(self.syn_store)
 
+        gates = np.array(self.s_store)
+
         # Voltage time curves
         for i in range(len(self.big_V)):
             plt.plot(self.t_store[start:end], voltage[start:end, i], label=f'V_m_{i}')
         plt.legend(loc='best')
         plt.show()
+
+        # Synapse gates
+        for i in range(len(self.big_V)):
+            plt.plot(self.t_store[start:end], gates[start:end, i], label=f's_{i}')
+        plt.legend(loc='best')
+        plt.show()
         
+        # Current curves
         for i in range(len(self.big_V)):
             plt.plot(self.t_store[start:end-1], leak[start:end, i], label=f'I_leak_{i}')
             plt.plot(self.t_store[start:end-1], input[start:end, i], label=f'I_in_{i}')
             plt.plot(self.t_store[start:end-1], synapse[start:end, i], label=f'I_syn_{i}')
             plt.legend(loc='best')
             plt.show()
+
+    def show_large_voltage_data(self):
+        voltage = np.array(self.V_store)
+
+        fig, axs = plt.subplots(ncols=6, nrows=6, figsize=(5*12, 5*12))
+
+        ax_index = 0
+        
+        # Voltage time curves
+        for i in range(len(self.big_V)):
+            if i % 8 == 7:
+                ax_index += 1
+                
+            axs[ax_index // 6, ax_index % 6].plot(self.t_store, voltage[:, i], label=f'V_m_{i}')
+            
+        plt.show()
 
     def show_data(self, n, start=0, end=None):
 

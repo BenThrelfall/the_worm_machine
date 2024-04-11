@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    evolution::{evaluate, predict, World},
+    evolution::{evaluate, evaluate_std, predict, World},
     factory::Factory,
 };
 
@@ -80,9 +80,12 @@ fn main() {
     use std::time::Instant;
     let now = Instant::now();
 
-    let heat = 1f64;
+    let mut heat = 1f64;
 
-    for i in 0..240 {
+    let mut prev_total = 2097840300f64;
+    let mut total = 2097840300f64;
+
+    for i in 0..100 {
         
         let results: Vec<f64> = population
             .par_iter_mut()
@@ -90,13 +93,29 @@ fn main() {
             .map(|mut model| evaluate(&mut model, 20, &time_trace))
             .collect();
 
-        let total: f64 = results.iter().sum();
-        println!("Total Error {}", total);
+        prev_total = total;
+        total = results.iter().sum();
+
+        let change = (prev_total - total) / prev_total;
+
+        if change.abs() < 0.001{
+            //heat += 0.1;
+        }
+
+        println!("Total Error {} Error Change {} Heat {}", total, change, heat);
 
         population = world.selection(&population, &results, 10);
 
+        if i % 500 == 0{
+            let file = File::create("processed_data/latest_population.json").unwrap();
+            let buffer = BufWriter::new(file);
+            serde_json::to_writer(buffer, &population).unwrap();
+        }
+
         world.crossover(&mut population);
         world.mutate(&mut population, 0.25, 0.25, heat);
+
+        heat *= 0.99;
     }
 
     let results: Vec<f64> = population
