@@ -1,13 +1,14 @@
 use itertools::Itertools;
 use rand::prelude::*;
 use rand_pcg::Pcg32;
+use serde::{Deserialize, Serialize};
 
 use crate::{factory::Specification, neuron::Network, Frame};
 
 const DEFAULT_VOLTAGE: f64 = 0.0;
 const DEFAULT_GATE: f64 = 0.0;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Genome {
     pub flat_syn_g: Vec<f64>,
     pub flat_syn_e: Vec<f64>,
@@ -250,4 +251,36 @@ pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f
     }
 
     return error;
+}
+
+pub fn predict(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+    let model_size = model.leak_g.len();
+    let mut voltage: Vec<f64> = (0..model_size).map(|_| DEFAULT_VOLTAGE).collect();
+    let mut gates: Vec<f64> = (0..model_size).map(|_| DEFAULT_GATE).collect();
+
+    for i in 0..15 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+        let points = data[start_index + i].data.clone();
+
+        voltage.splice(..points.len(), points);
+
+        (voltage, gates) = model.run(voltage, gates, 0.01, runtime);
+    }
+
+    let start_index = start_index + 15;
+
+    let mut predicted = Vec::new();
+    let mut actual = Vec::new();
+
+    for i in 0..15 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+        let points = data[start_index + i].data.clone();
+
+        (voltage, gates) = model.run(voltage, gates, 0.01, runtime);
+
+        predicted.push(voltage.clone());
+        actual.push(points.clone());
+    }
+
+    return (predicted, actual);
 }

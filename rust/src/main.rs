@@ -1,11 +1,11 @@
-use std::{fs::File, io::BufReader, os::unix::raw::time_t};
+use std::{fs::File, io::{BufReader, BufWriter}, os::unix::raw::time_t};
 
 use neuron::Network;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    evolution::{evaluate, World},
+    evolution::{evaluate, predict, World},
     factory::Factory,
 };
 
@@ -82,7 +82,7 @@ fn main() {
 
     let heat = 1f64;
 
-    for i in 0..3 {
+    for i in 0..240 {
         
         let results: Vec<f64> = population
             .par_iter_mut()
@@ -98,6 +98,27 @@ fn main() {
         world.crossover(&mut population);
         world.mutate(&mut population, 0.25, 0.25, heat);
     }
+
+    let results: Vec<f64> = population
+        .par_iter_mut()
+        .map(|genome| factory.build(genome.clone()))
+        .map(|mut model| evaluate(&mut model, 20, &time_trace))
+        .collect();
+
+    population = world.selection(&population, &results, 10);
+
+    let file = File::create("processed_data/final_population.json").unwrap();
+    let buffer = BufWriter::new(file);
+    serde_json::to_writer(buffer, &population).unwrap();
+
+    let best = population.first().unwrap();
+    let mut best_model = factory.build(best.clone());
+
+    let final_data = predict(&mut best_model, 20, &time_trace);
+
+    let file = File::create("processed_data/prediction.json").unwrap();
+    let buffer = BufWriter::new(file);
+    serde_json::to_writer(buffer, &final_data).unwrap();
 
     let elapsed = now.elapsed();
 
