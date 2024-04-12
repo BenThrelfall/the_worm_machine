@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import time
-from libworm.data.neuron import gaba_list
+from libworm.data.neuron import gaba_list, full_sensory_list
 
 ###
 # Gap Junctions and Synapses
@@ -271,19 +271,25 @@ class NeuronNetwork:
             plt.legend(loc='best')
             plt.show()
 
-    def show_large_voltage_data(self):
-        voltage = np.array(self.V_store)
+    def show_large_voltage_data(self, count = None, per = 8.0):
 
-        fig, axs = plt.subplots(ncols=6, nrows=6, figsize=(5*12, 5*12))
+        if count is None:
+            voltage = np.array(self.V_store)
+        else:
+            voltage = np.array(self.V_store)[:, :count]
 
-        ax_index = 0
+        size = int(np.ceil(np.sqrt(voltage.shape[1] / per)))
+
+        fig, axs = plt.subplots(ncols=size, nrows=size, figsize=(5*12, 5*12))
+
+        ax_index = -1
         
         # Voltage time curves
-        for i in range(len(self.big_V)):
-            if i % 8 == 7:
+        for i in range(voltage.shape[1]):
+            if i % per == 0:
                 ax_index += 1
                 
-            axs[ax_index // 6, ax_index % 6].plot(self.t_store, voltage[:, i], label=f'V_m_{i}')
+            axs[ax_index // size, ax_index % size].plot(self.t_store, voltage[:, i], label=f'V_m_{i}')
             
         plt.show()
 
