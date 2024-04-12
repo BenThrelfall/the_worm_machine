@@ -1,4 +1,5 @@
 __pycache__/
+.virtual_documents/
 rust/debug/
 rust/target/
 Cargo.lock
