@@ -10,6 +10,59 @@ use crate::{factory::Specification, neuron::Network, Frame};
 const DEFAULT_VOLTAGE: f64 = 0.0;
 const DEFAULT_GATE: f64 = 0.0;
 
+pub enum SynapseType {
+    Excitatory,
+    Inhibitory,
+}
+
+pub struct SmallGenome {
+    pub syn_g: f64,
+    pub syn_e_in: f64,
+    pub syn_e_ex: f64,
+    pub syn_types: Vec<SynapseType>,
+    pub gap_g: f64,
+    pub gate_beta: f64,
+    pub gate_adjust: f64,
+    pub leak_g: f64,
+    pub leak_e: f64,
+}
+
+impl SmallGenome {
+    pub fn expand(&self, specification: Specification) -> Genome {
+        let flat_syn_g = self.syn_types.iter().map(|_| self.syn_g).collect();
+        let flat_syn_e = self
+            .syn_types
+            .iter()
+            .map(|t| match t {
+                SynapseType::Excitatory => self.syn_e_ex,
+                SynapseType::Inhibitory => self.syn_e_in,
+            })
+            .collect();
+
+        let flat_gap_g = (0..specification.gap_len).map(|_| self.gap_g).collect();
+
+        let gate_beta = (0..specification.model_len)
+            .map(|_| self.gate_beta)
+            .collect();
+        let gate_adjust = (0..specification.model_len)
+            .map(|_| self.gate_adjust)
+            .collect();
+
+        let leak_g = (0..specification.model_len).map(|_| self.leak_g).collect();
+        let leak_e = (0..specification.model_len).map(|_| self.leak_e).collect();
+
+        Genome {
+            flat_syn_g,
+            flat_syn_e,
+            flat_gap_g,
+            gate_beta,
+            gate_adjust,
+            leak_g,
+            leak_e,
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Genome {
     pub flat_syn_g: Vec<f64>,
@@ -39,6 +92,7 @@ pub struct World {
     rng: Pcg32,
 }
 
+//Normal Genome
 impl World {
     pub fn new() -> Self {
         let rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
@@ -179,24 +233,6 @@ impl World {
         );
     }
 
-    fn mutate_vec(
-        &mut self,
-        vec: &mut Vec<f64>,
-        rate: f64,
-        delta_min: f64,
-        delta_max: f64,
-        bound_min: f64,
-        bound_max: f64,
-        heat: f64,
-    ) {
-        for item in vec {
-            if self.rng.gen_bool(rate) {
-                *item += self.rng.gen_range(delta_min..delta_max) * heat;
-                *item = item.clamp(bound_min, bound_max);
-            }
-        }
-    }
-
     fn random_breed(&mut self, x_parent: &Genome, y_parent: &Genome) -> (Genome, Genome) {
         let mut a_child = Genome::new();
         let mut b_child = Genome::new();
@@ -262,6 +298,72 @@ impl World {
         }
 
         (a_child, b_child)
+    }
+}
+
+//Small Genome
+impl World {
+    pub fn small_random_population(
+        &mut self,
+        specification: &Specification,
+        count: usize,
+    ) -> Vec<SmallGenome> {
+        (0..count)
+            .map(|_| self.small_random_genome(specification))
+            .collect()
+    }
+
+    pub fn small_random_genome(&mut self, specification: &Specification) -> SmallGenome {
+        let syn_g = self.rng.gen_range(1f64..200f64);
+        let syn_e_in = self.rng.gen_range(-100f64..100f64);
+        let syn_e_ex = self.rng.gen_range(-100f64..100f64);
+        let gap_g = self.rng.gen_range(1f64..200f64);
+        let gate_beta = self.rng.gen_range(0.01f64..2f64);
+        let gate_adjust = self.rng.gen_range(-70f64..70f64);
+        let leak_g = self.rng.gen_range(1f64..200f64);
+        let leak_e = self.rng.gen_range(-100f64..100f64);
+
+        let rate = self.rng.gen_range(0.01f64..1f64);
+        let syn_types = (0..specification.syn_len).map(|_| {
+            if self.rng.gen_bool(rate) {
+                SynapseType::Excitatory
+            } else {
+                SynapseType::Inhibitory
+            }
+        }).collect();
+
+        SmallGenome {
+            syn_g,
+            syn_e_in,
+            syn_e_ex,
+            syn_types,
+            gap_g,
+            gate_beta,
+            gate_adjust,
+            leak_g,
+            leak_e,
+        }
+    }
+}
+
+//General Functions
+impl World {
+    fn mutate_vec(
+        &mut self,
+        vec: &mut Vec<f64>,
+        rate: f64,
+        delta_min: f64,
+        delta_max: f64,
+        bound_min: f64,
+        bound_max: f64,
+        heat: f64,
+    ) {
+        for item in vec {
+            if self.rng.gen_bool(rate) {
+                *item += self.rng.gen_range(delta_min..delta_max) * heat;
+                *item = item.clamp(bound_min, bound_max);
+            }
+        }
     }
 }
 
@@ -332,9 +434,16 @@ pub fn evaluate_std(model: &mut Network, start_index: usize, data: &Vec<Frame>) 
         memory.push(voltage.clone());
     }
 
-    for i in 0..voltage.len(){
+    for i in 0..voltage.len() {
         let mean = memory.iter().map(|frame| frame[i]).sum::<f64>() / memory.len() as f64;
-        error += (memory.iter().map(|frame| (frame[i] - mean).powf(2.0)).sum::<f64>() / memory.len() as f64).mul(0.1).neg().exp();
+        error += (memory
+            .iter()
+            .map(|frame| (frame[i] - mean).powf(2.0))
+            .sum::<f64>()
+            / memory.len() as f64)
+            .mul(0.1)
+            .neg()
+            .exp();
     }
 
     return error;
