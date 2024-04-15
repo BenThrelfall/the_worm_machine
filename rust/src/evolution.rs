@@ -344,6 +344,25 @@ impl World {
             leak_e,
         }
     }
+
+    pub fn small_mutate(
+        &mut self,
+        population: &mut Vec<SmallGenome>,
+        genome_rate: f64,
+        dna_rate: f64,
+        heat: f64,
+    ) {
+        for genome in population {
+            if self.rng.gen_bool(genome_rate) {
+                self.small_mutate_genome(genome, dna_rate, heat);
+            }
+        }
+    }
+
+    fn small_mutate_genome(&mut self, genome: &mut SmallGenome, rate: f64, heat: f64) {
+        todo!();
+    }
+
 }
 
 //General Functions
@@ -359,10 +378,23 @@ impl World {
         heat: f64,
     ) {
         for item in vec {
-            if self.rng.gen_bool(rate) {
-                *item += self.rng.gen_range(delta_min..delta_max) * heat;
-                *item = item.clamp(bound_min, bound_max);
-            }
+            self.mutate_value(item, rate, delta_min, delta_max, bound_min, bound_max, heat);
+        }
+    }
+
+    fn mutate_value(
+        &mut self,
+        item: &mut f64,
+        rate: f64,
+        delta_min: f64,
+        delta_max: f64,
+        bound_min: f64,
+        bound_max: f64,
+        heat: f64,
+    ) {
+        if self.rng.gen_bool(rate) {
+            *item += self.rng.gen_range(delta_min..delta_max) * heat;
+            *item = item.clamp(bound_min, bound_max);
         }
     }
 }
