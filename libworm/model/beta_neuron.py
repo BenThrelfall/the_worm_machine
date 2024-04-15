@@ -271,7 +271,7 @@ class NeuronNetwork:
             plt.legend(loc='best')
             plt.show()
 
-    def show_large_voltage_data(self, count = None, per = 8.0):
+    def show_large_voltage_data(self, count = None, per = 8.0, stride=1):
 
         if count is None:
             voltage = np.array(self.V_store)
@@ -289,7 +289,7 @@ class NeuronNetwork:
             if i % per == 0:
                 ax_index += 1
                 
-            axs[ax_index // size, ax_index % size].plot(self.t_store, voltage[:, i], label=f'V_m_{i}')
+            axs[ax_index // size, ax_index % size].plot(self.t_store[::stride], voltage[::stride, i], label=f'V_m_{i}')
             
         plt.show()
 
