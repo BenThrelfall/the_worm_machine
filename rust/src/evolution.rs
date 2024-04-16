@@ -5,7 +5,7 @@ use rand::prelude::*;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
 
-use crate::{factory::Specification, neuron::Network, Frame};
+use crate::{factory::Specification, neuron::Network, data::Frame};
 
 const DEFAULT_VOLTAGE: f64 = 0.0;
 const DEFAULT_GATE: f64 = 0.0;
@@ -28,7 +28,7 @@ pub struct SmallGenome {
 }
 
 impl SmallGenome {
-    pub fn expand(&self, specification: Specification) -> Genome {
+    pub fn expand(&self, specification: &Specification) -> Genome {
         let flat_syn_g = self.syn_types.iter().map(|_| self.syn_g).collect();
         let flat_syn_e = self
             .syn_types
@@ -430,6 +430,37 @@ pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f
     }
 
     return error;
+}
+
+pub fn record_with_data(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> Vec<Vec<f64>> {
+
+    let model_size = model.leak_g.len();
+    let mut voltage: Vec<f64> = (0..model_size).map(|_| DEFAULT_VOLTAGE).collect();
+    let mut gates: Vec<f64> = (0..model_size).map(|_| DEFAULT_GATE).collect();
+
+    let mut output: Vec<Vec<f64>> = Vec::new();
+    let mut volt_record;
+
+    for i in 0..15 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+        let points = data[start_index + i].data.clone();
+
+        voltage.splice(..points.len(), points);
+
+        (voltage, gates, volt_record, _) = model.recorded_run(voltage, gates, 0.0001, runtime, 10);
+        output.append(&mut volt_record);
+    }
+
+    let start_index = start_index + 15;
+
+    for i in 0..60 {
+        let runtime = data[start_index + i + 1].time - data[start_index + i].time;
+
+        (voltage, gates, volt_record, _) = model.recorded_run(voltage, gates, 0.0001, runtime, 10);
+        output.append(&mut volt_record);
+    }
+
+    return output;
 }
 
 pub fn evaluate_std(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f64 {

@@ -13,7 +13,7 @@ pub struct Specification {
 }
 
 impl Factory {
-    pub fn new(full_syn_g: Vec<Vec<f64>>, full_gap_g: Vec<Vec<f64>>) -> Self {
+    pub fn new(full_syn_g: &Vec<Vec<f64>>, full_gap_g: &Vec<Vec<f64>>) -> Self {
         let model_len = full_gap_g.len();
 
         let mut syn_indices = Vec::new();

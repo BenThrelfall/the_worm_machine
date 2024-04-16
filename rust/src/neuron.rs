@@ -99,6 +99,30 @@ impl Network {
         return (voltage, gates);
     }
 
+    pub fn recorded_run(&mut self, mut voltage: Vec<f64>, mut gates: Vec<f64>, timestep: f64, runtime: f64, stride: i32) -> (Vec<f64>, Vec<f64>, Vec<Vec<f64>>, Vec<Vec<f64>>){
+
+        let mut time = 0f64;
+
+        let mut volt_record = Vec::new();
+        let mut gate_record = Vec::new();
+
+        let mut frame_count = 0;
+
+        while time < runtime{
+            (voltage, gates) = self.step(voltage, gates, timestep);
+
+            if frame_count % stride == 0{
+                volt_record.push(voltage.clone());
+                gate_record.push(gates.clone());
+            }
+            frame_count += 1;
+
+            time += timestep;
+        }
+        
+        return (voltage, gates, volt_record, gate_record);
+    }
+
     fn step(&mut self, voltage: Vec<f64>, gates: Vec<f64>, timestep: f64) -> (Vec<f64>, Vec<f64>) {
 
         for (i, line) in self.syn_g.iter().enumerate(){
