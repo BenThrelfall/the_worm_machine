@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::Frame, evolution::{evaluate, evaluate_std, predict, SmallGenome, SynapseType, World}, factory::Factory, neuron::Network
+    data::Frame, evolution::{evaluate, evaluate_std, predict, SmallGenome, SynapseType, World}, factory::Factory, neuron::{self, Network}
 };
 
 pub fn evolutionary_training(){
@@ -86,6 +86,7 @@ pub fn evolutionary_training(){
 }
 
 fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>) {
+
     let neurons: Vec<String>;
     let flat_g_syn: Vec<f64>;
     let flat_e_syn: Vec<f64>;
@@ -143,6 +144,11 @@ fn preprocess_frames(time_trace: &mut Vec<Frame>, pre_adjust: f64, multiplier: f
 pub fn experimental_run(){
 
     let (mut time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+
+    let file = File::open("processed_data/sensory_indices.json").unwrap();
+    let buffer = BufReader::new(file);
+    let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
+
     preprocess_frames(&mut time_trace, 0.0, 10.0, -35.0);
 
     let factory = Factory::new(&full_syn_g, &full_gap_g);
@@ -159,13 +165,13 @@ pub fn experimental_run(){
 
     let genome = SmallGenome{
         syn_g: 100.0,
-        syn_e_in: -100.0,
-        syn_e_ex: -20.0,
+        syn_e_in: -45.0,
+        syn_e_ex: 0.0,
         syn_types,
-        gap_g: 0.001,
-        gate_beta: 1.0,
+        gap_g: 100.0,
+        gate_beta: 0.125,
         gate_adjust: -15.0,
-        leak_g: 0.1,
+        leak_g: 10.0,
         leak_e: -35.0,
     };
 
@@ -176,7 +182,7 @@ pub fn experimental_run(){
 
     let record;
 
-    record = crate::evolution::record_with_data(&mut model, 0, &time_trace);
+    (_, _, record, _) = model.recorded_run_sensory(voltage, gates, 0.001, 10.0, &time_trace, &sensory_indices, 1);
 
     let file = File::create("processed_data/results.json").unwrap();
     let buffer = BufWriter::new(file);
