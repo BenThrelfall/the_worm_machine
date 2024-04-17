@@ -189,12 +189,13 @@ impl Network {
                 }
             }
 
-            (voltage, gates) = self.step(voltage, gates, timestep);
-
             if frame_count % stride == 0 {
                 volt_record.push(voltage.clone());
                 gate_record.push(gates.clone());
             }
+
+            (voltage, gates) = self.step(voltage, gates, timestep);
+
             frame_count += 1;
 
             time += timestep;

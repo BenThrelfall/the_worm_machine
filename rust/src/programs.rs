@@ -165,8 +165,8 @@ pub fn experimental_run(){
 
     let genome = SmallGenome{
         syn_g: 100.0,
-        syn_e_in: -45.0,
-        syn_e_ex: 0.0,
+        syn_e_in: -100.0,
+        syn_e_ex: 100.0,
         syn_types,
         gap_g: 100.0,
         gate_beta: 0.125,
@@ -182,9 +182,9 @@ pub fn experimental_run(){
 
     let record;
 
-    (_, _, record, _) = model.recorded_run_sensory(voltage, gates, 0.001, 10.0, &time_trace, &sensory_indices, 1);
+    (_, _, record, _) = model.recorded_run_sensory(voltage, gates, 0.00001, 10.0, &time_trace, &sensory_indices, 100);
 
-    let file = File::create("processed_data/results.json").unwrap();
+    let file = File::create("results/dp_bio_sens_dt_00001_new.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &record).unwrap();
 

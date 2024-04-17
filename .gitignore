@@ -5,3 +5,4 @@ rust/target/
 Cargo.lock
 **/*.rs.bk
 rust/processed_data/
+rust/results/
