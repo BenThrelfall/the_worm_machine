@@ -1,6 +1,6 @@
 use itertools::izip;
 
-use crate::data::Frame;
+use crate::data::{self, Frame};
 
 pub struct Network {
     pub syn_co: Vec<f64>,
@@ -144,7 +144,9 @@ impl Network {
         mut gates: Vec<f64>,
         timestep: f64,
         runtime: f64,
-        data: &Vec<Frame>,
+        trace: &Vec<Frame>,
+        mul: f64,
+        adjust: f64,
         indices: &Vec<usize>,
         stride: i32,
     ) -> SensoryRunResult {
@@ -157,15 +159,19 @@ impl Network {
 
         let mut frame_a;
         let mut frame_b;
+        let mut check_frame;
         let mut diff;
         let mut dist;
 
         let mut current_frame = 0;
 
+        let mut processed_trace = trace.clone();
+        data::preprocess_frames(&mut processed_trace, mul, adjust);
+
         current_frame += 1;
 
-        frame_b = &data[current_frame];
-        frame_a = &data[current_frame - 1];
+        frame_b = &processed_trace[current_frame];
+        frame_a = &processed_trace[current_frame - 1];
 
         diff = frame_b.time - frame_a.time;
         dist = (time - frame_a.time) / diff;
@@ -174,18 +180,20 @@ impl Network {
 
         while time < runtime {
 
-            while data[current_frame].time <= time {
+            while processed_trace[current_frame].time <= time {
                 current_frame += 1;
 
-                frame_b = &data[current_frame];
-                frame_a = &data[current_frame - 1];
+                frame_b = &processed_trace[current_frame];
+                frame_a = &processed_trace[current_frame - 1];
+
+                check_frame = &trace[current_frame - 1];
 
                 diff = frame_b.time - frame_a.time;
 
                 error += voltage
                     .iter()
-                    .zip(frame_a.data.iter())
-                    .map(|(volt, point)| (volt - point).powf(2.0))
+                    .zip(check_frame.data.iter())
+                    .map(|(volt, point)| (((volt - adjust) / mul) - point).powf(2.0))
                     .sum::<f64>();
             }
 

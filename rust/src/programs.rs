@@ -133,14 +133,6 @@ fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>) {
     (time_trace, full_syn_g, full_gap_g, full_syn_e)
 }
 
-fn preprocess_frames(time_trace: &mut Vec<Frame>, pre_adjust: f64, multiplier: f64, post_adjust: f64){
-    for frame in time_trace.iter_mut() {
-        for point in frame.data.iter_mut() {
-            *point = multiplier * (*point + pre_adjust) + post_adjust;
-        }
-    }
-}
-
 pub fn experimental_run(){
 
     let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
@@ -163,8 +155,8 @@ pub fn experimental_run(){
 
     let genome = SmallGenome{
         syn_g: 100.0,
-        syn_e_in: -100.0,
-        syn_e_ex: 100.0,
+        syn_e_in: -45.0,
+        syn_e_ex: 0.0,
         syn_types,
         gap_g: 100.0,
         gate_beta: 0.125,
@@ -173,32 +165,22 @@ pub fn experimental_run(){
         leak_e: -35.0,
     };
 
-    let mut final_results = Vec::new();
+    let multiplier = 12.0;
+    let adjust = -13.0;
 
-    for i in -100..100{
-        println!("Loop Complete");
-        for j in -100..100{
+    let mut_trace = time_trace.clone();
 
-            let mut mut_trace = time_trace.clone();
+    let mut model = factory.build(genome.expand(&specification));
 
-            let multiplier = i as f64;
-            let adjust = j as f64;
+    let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+    let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
 
-            preprocess_frames(&mut mut_trace, 0.0, multiplier, adjust);
+    let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
 
-            let mut model = factory.build(genome.expand(&specification));
+    println!("{}", result.error);
 
-            let mut voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
-            let mut gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
-        
-            let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, &sensory_indices, 100);
-
-            final_results.push((multiplier, adjust, result.error));
-        }
-    }
-
-    let file = File::create("results/dp_bio_sens_dt_00001_new.json").unwrap();
+    let file = File::create("results/newnew_run.json").unwrap();
     let buffer = BufWriter::new(file);
-    serde_json::to_writer(buffer, &final_results).unwrap();
+    serde_json::to_writer(buffer, &result.volt_record).unwrap();
 
 }
