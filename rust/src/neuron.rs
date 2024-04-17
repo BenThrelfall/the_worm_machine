@@ -147,7 +147,7 @@ impl Network {
         data: &Vec<Frame>,
         indices: &Vec<usize>,
         stride: i32,
-    ) -> (Vec<f64>, Vec<f64>, Vec<Vec<f64>>, Vec<Vec<f64>>) {
+    ) -> SensoryRunResult {
         let mut time = 0f64;
 
         let mut volt_record = Vec::new();
@@ -170,22 +170,31 @@ impl Network {
         diff = frame_b.time - frame_a.time;
         dist = (time - frame_a.time) / diff;
 
+        let mut error = 0.0;
+
         while time < runtime {
 
-            while data[current_frame].time <= time{
+            while data[current_frame].time <= time {
                 current_frame += 1;
 
                 frame_b = &data[current_frame];
                 frame_a = &data[current_frame - 1];
 
                 diff = frame_b.time - frame_a.time;
+
+                error += voltage
+                    .iter()
+                    .zip(frame_a.data.iter())
+                    .map(|(volt, point)| (volt - point).powf(2.0))
+                    .sum::<f64>();
             }
 
             dist = (time - frame_a.time) / diff;
 
-            for index in indices{
-                if *index < frame_a.data.len(){
-                    voltage[*index] = frame_a.data[*index] * (1.0 - dist) + frame_b.data[*index] * dist;
+            for index in indices {
+                if *index < frame_a.data.len() {
+                    voltage[*index] =
+                        frame_a.data[*index] * (1.0 - dist) + frame_b.data[*index] * dist;
                 }
             }
 
@@ -201,7 +210,13 @@ impl Network {
             time += timestep;
         }
 
-        return (voltage, gates, volt_record, gate_record);
+        SensoryRunResult {
+            voltage,
+            gates,
+            volt_record,
+            gate_record,
+            error,
+        }
     }
 
     fn step(&mut self, voltage: Vec<f64>, gates: Vec<f64>, timestep: f64) -> (Vec<f64>, Vec<f64>) {
@@ -261,4 +276,12 @@ impl Network {
         let sig = 1.0 / (1.0 + (-beta * (voltage - adjust)).exp());
         return (1.0 * sig) / (1.0 * sig + 5.0);
     }
+}
+
+pub struct SensoryRunResult {
+    pub voltage: Vec<f64>,
+    pub gates: Vec<f64>,
+    pub volt_record: Vec<Vec<f64>>,
+    pub gate_record: Vec<Vec<f64>>,
+    pub error: f64,
 }

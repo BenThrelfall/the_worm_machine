@@ -143,13 +143,11 @@ fn preprocess_frames(time_trace: &mut Vec<Frame>, pre_adjust: f64, multiplier: f
 
 pub fn experimental_run(){
 
-    let (mut time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+    let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
 
     let file = File::open("processed_data/sensory_indices.json").unwrap();
     let buffer = BufReader::new(file);
     let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
-
-    preprocess_frames(&mut time_trace, 0.0, 10.0, -35.0);
 
     let factory = Factory::new(&full_syn_g, &full_gap_g);
     let specification = factory.get_specification();
@@ -175,17 +173,32 @@ pub fn experimental_run(){
         leak_e: -35.0,
     };
 
-    let mut model = factory.build(genome.expand(&specification));
+    let mut final_results = Vec::new();
 
-    let mut voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
-    let mut gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+    for i in -100..100{
+        println!("Loop Complete");
+        for j in -100..100{
 
-    let record;
+            let mut mut_trace = time_trace.clone();
 
-    (_, _, record, _) = model.recorded_run_sensory(voltage, gates, 0.00001, 10.0, &time_trace, &sensory_indices, 100);
+            let multiplier = i as f64;
+            let adjust = j as f64;
+
+            preprocess_frames(&mut mut_trace, 0.0, multiplier, adjust);
+
+            let mut model = factory.build(genome.expand(&specification));
+
+            let mut voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+            let mut gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+        
+            let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, &sensory_indices, 100);
+
+            final_results.push((multiplier, adjust, result.error));
+        }
+    }
 
     let file = File::create("results/dp_bio_sens_dt_00001_new.json").unwrap();
     let buffer = BufWriter::new(file);
-    serde_json::to_writer(buffer, &record).unwrap();
+    serde_json::to_writer(buffer, &final_results).unwrap();
 
 }
