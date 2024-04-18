@@ -1,4 +1,5 @@
-use crate::{evolution::Genome, neuron::Network};
+use crate::{genetics::Genome, neuron::Network};
+
 
 pub struct Factory {
     pub model_len: usize,

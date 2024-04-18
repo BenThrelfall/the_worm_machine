@@ -1,15 +1,14 @@
 use std::{fs::File, io::{BufReader, BufWriter}};
 
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::Frame, evolution::{evaluate, evaluate_std, predict, SmallGenome, SynapseType, World}, factory::Factory, neuron::{self, Network}
+    data::Frame, evolution::{evaluate, predict, World}, factory::Factory, genetics::{calculate_gate_adjust, SmallGenome, SynapseType}
 };
 
 pub fn evolutionary_training(){
 
-    let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+    let (time_trace, full_syn_g, full_gap_g, _full_syn_e) = read_data();
 
     let factory = Factory::new(&full_syn_g, &full_gap_g);
     let specification = factory.get_specification();
@@ -22,7 +21,7 @@ pub fn evolutionary_training(){
 
     let mut heat = 1f64;
 
-    let mut prev_total = 2097840300f64;
+    let mut prev_total;
     let mut total = 2097840300f64;
 
     for i in 0..100 {
@@ -92,7 +91,7 @@ fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>) {
     let flat_e_syn: Vec<f64>;
     let flat_g_gap: Vec<f64>;
 
-    let mut time_trace: Vec<Frame>;
+    let time_trace: Vec<Frame>;
 
     let file = File::open("processed_data/time_trace.json").unwrap();
     let buffer = BufReader::new(file);
@@ -144,7 +143,7 @@ pub fn experimental_run(){
     let factory = Factory::new(&full_syn_g, &full_gap_g);
     let specification = factory.get_specification();
 
-    let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(e, g)| **g != 0.0).map(|(e, g)| if *e == 0.0{
+    let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(_, g)| **g != 0.0).map(|(e, _)| if *e == 0.0{
         SynapseType::Excitatory
     }else{
         SynapseType::Inhibitory
@@ -179,8 +178,135 @@ pub fn experimental_run(){
 
     println!("{}", result.error);
 
-    let file = File::create("results/newnew_run.json").unwrap();
+    let file = File::create("results/tmp_can_delete.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &result.volt_record).unwrap();
+
+}
+
+
+pub fn gate_calculation(){
+
+    let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+
+    let leak_g = (0..280).map(|_| 10f64).collect();
+    let leak_e = (0..280).map(|_| -35f64).collect();
+
+    let gate_calc = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+
+    let file = File::open("processed_data/sensory_indices.json").unwrap();
+    let buffer = BufReader::new(file);
+    let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
+
+    let factory = Factory::new(&full_syn_g, &full_gap_g);
+    let specification = factory.get_specification();
+
+    let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(_, g)| **g != 0.0).map(|(e, _)| if *e == 0.0{
+        SynapseType::Excitatory
+    }else{
+        SynapseType::Inhibitory
+    }).collect();
+
+    println!("{}", specification.syn_len);
+    println!("{}", syn_types.len());
+
+    let genome = SmallGenome{
+        syn_g: 0.001,
+        syn_e_in: -45.0,
+        syn_e_ex: 0.0,
+        syn_types,
+        gap_g: 0.001,
+        gate_beta: 0.125,
+        gate_adjust: -15.0,
+        leak_g: 0.001,
+        leak_e: -35.0,
+    };
+
+    let multiplier = 12.0;
+    let adjust = -13.0;
+
+    let mut_trace = time_trace.clone();
+
+    let mut model = factory.build(genome.expand(&specification));
+    model.gate_adjust = gate_calc;
+
+    let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+    let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+
+    let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+
+    println!("{}", result.error);
+
+    let file = File::create("results/tmp_runs_new.json").unwrap();
+    let buffer = BufWriter::new(file);
+    serde_json::to_writer(buffer, &result.volt_record).unwrap();
+
+}
+
+pub fn proprocess_experiment_with_gate_calc(){
+
+    let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+
+    let leak_g = (0..280).map(|_| 10f64).collect();
+    let leak_e = (0..280).map(|_| -35f64).collect();
+
+    let gate_calc = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+
+    let file = File::open("processed_data/sensory_indices.json").unwrap();
+    let buffer = BufReader::new(file);
+    let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
+
+    let factory = Factory::new(&full_syn_g, &full_gap_g);
+    let specification = factory.get_specification();
+
+    let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(_, g)| **g != 0.0).map(|(e, _)| if *e == 0.0{
+        SynapseType::Excitatory
+    }else{
+        SynapseType::Inhibitory
+    }).collect();
+
+    println!("{}", specification.syn_len);
+    println!("{}", syn_types.len());
+
+    let genome = SmallGenome{
+        syn_g: 100.0,
+        syn_e_in: -45.0,
+        syn_e_ex: 0.0,
+        syn_types,
+        gap_g: 100.0,
+        gate_beta: 0.125,
+        gate_adjust: -15.0,
+        leak_g: 10.0,
+        leak_e: -35.0,
+    };
+
+    let mut final_results = Vec::new();
+
+    for i in -100..100{
+        println!("Loop Complete");
+        let mut loop_result = (-100..100).into_par_iter().map(|j|{
+            let mut_trace = time_trace.clone();
+
+            let multiplier = i as f64;
+            let adjust = j as f64;
+
+            let mut model = factory.build(genome.expand(&specification));
+            model.gate_adjust = gate_calc.clone();
+
+            let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+            let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+        
+            let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+
+            (multiplier, adjust, result.error)
+        }).collect();
+
+        final_results.append(&mut loop_result);
+    }
+
+
+    let file = File::create("results/preprocessing_tests_with_calc_gates.json").unwrap();
+    let buffer = BufWriter::new(file);
+    serde_json::to_writer(buffer, &final_results).unwrap();
 
 }

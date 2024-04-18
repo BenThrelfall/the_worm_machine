@@ -174,7 +174,6 @@ impl Network {
         frame_a = &processed_trace[current_frame - 1];
 
         diff = frame_b.time - frame_a.time;
-        dist = (time - frame_a.time) / diff;
 
         let mut error = 0.0;
 

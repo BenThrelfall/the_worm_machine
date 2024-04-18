@@ -3,90 +3,11 @@ use std::ops::{Mul, Neg};
 use itertools::Itertools;
 use rand::prelude::*;
 use rand_pcg::Pcg32;
-use serde::{Deserialize, Serialize};
 
-use crate::{factory::Specification, neuron::Network, data::Frame};
+use crate::{data::Frame, factory::Specification, genetics::{Genome, SmallGenome, SynapseType}, neuron::Network};
 
 const DEFAULT_VOLTAGE: f64 = 0.0;
 const DEFAULT_GATE: f64 = 0.0;
-
-pub enum SynapseType {
-    Excitatory,
-    Inhibitory,
-}
-
-pub struct SmallGenome {
-    pub syn_g: f64,
-    pub syn_e_in: f64,
-    pub syn_e_ex: f64,
-    pub syn_types: Vec<SynapseType>,
-    pub gap_g: f64,
-    pub gate_beta: f64,
-    pub gate_adjust: f64,
-    pub leak_g: f64,
-    pub leak_e: f64,
-}
-
-impl SmallGenome {
-    pub fn expand(&self, specification: &Specification) -> Genome {
-        let flat_syn_g = self.syn_types.iter().map(|_| self.syn_g).collect();
-        let flat_syn_e = self
-            .syn_types
-            .iter()
-            .map(|t| match t {
-                SynapseType::Excitatory => self.syn_e_ex,
-                SynapseType::Inhibitory => self.syn_e_in,
-            })
-            .collect();
-
-        let flat_gap_g = (0..specification.gap_len).map(|_| self.gap_g).collect();
-
-        let gate_beta = (0..specification.model_len)
-            .map(|_| self.gate_beta)
-            .collect();
-        let gate_adjust = (0..specification.model_len)
-            .map(|_| self.gate_adjust)
-            .collect();
-
-        let leak_g = (0..specification.model_len).map(|_| self.leak_g).collect();
-        let leak_e = (0..specification.model_len).map(|_| self.leak_e).collect();
-
-        Genome {
-            flat_syn_g,
-            flat_syn_e,
-            flat_gap_g,
-            gate_beta,
-            gate_adjust,
-            leak_g,
-            leak_e,
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Genome {
-    pub flat_syn_g: Vec<f64>,
-    pub flat_syn_e: Vec<f64>,
-    pub flat_gap_g: Vec<f64>,
-    pub gate_beta: Vec<f64>,
-    pub gate_adjust: Vec<f64>,
-    pub leak_g: Vec<f64>,
-    pub leak_e: Vec<f64>,
-}
-
-impl Genome {
-    pub fn new() -> Self {
-        Genome {
-            flat_syn_g: Vec::new(),
-            flat_syn_e: Vec::new(),
-            flat_gap_g: Vec::new(),
-            gate_beta: Vec::new(),
-            gate_adjust: Vec::new(),
-            leak_g: Vec::new(),
-            leak_e: Vec::new(),
-        }
-    }
-}
 
 pub struct World {
     rng: Pcg32,
@@ -324,13 +245,15 @@ impl World {
         let leak_e = self.rng.gen_range(-100f64..100f64);
 
         let rate = self.rng.gen_range(0.01f64..1f64);
-        let syn_types = (0..specification.syn_len).map(|_| {
-            if self.rng.gen_bool(rate) {
-                SynapseType::Excitatory
-            } else {
-                SynapseType::Inhibitory
-            }
-        }).collect();
+        let syn_types = (0..specification.syn_len)
+            .map(|_| {
+                if self.rng.gen_bool(rate) {
+                    SynapseType::Excitatory
+                } else {
+                    SynapseType::Inhibitory
+                }
+            })
+            .collect();
 
         SmallGenome {
             syn_g,
@@ -359,10 +282,9 @@ impl World {
         }
     }
 
-    fn small_mutate_genome(&mut self, genome: &mut SmallGenome, rate: f64, heat: f64) {
+    fn small_mutate_genome(&mut self, _genome: &mut SmallGenome, _rate: f64, _heat: f64) {
         todo!();
     }
-
 }
 
 //General Functions
@@ -432,8 +354,11 @@ pub fn evaluate(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> f
     return error;
 }
 
-pub fn record_with_data(model: &mut Network, start_index: usize, data: &Vec<Frame>) -> Vec<Vec<f64>> {
-
+pub fn record_with_data(
+    model: &mut Network,
+    start_index: usize,
+    data: &Vec<Frame>,
+) -> Vec<Vec<f64>> {
     let model_size = model.leak_g.len();
     let mut voltage: Vec<f64> = (0..model_size).map(|_| DEFAULT_VOLTAGE).collect();
     let mut gates: Vec<f64> = (0..model_size).map(|_| DEFAULT_GATE).collect();
