@@ -125,3 +125,44 @@ impl SmallGenome {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::calculate_gate_adjust;
+
+    #[test]
+    fn gate_calc_test() {
+
+        let leak_g = vec![10.0, 15.0, 8.0];
+        let leak_e = vec![-35.0, -20.0, -40.0];
+
+        let full_syn_g = vec![
+            vec![0.0, 90.0, 100.0],
+            vec![50.0, 0.0, 0.0],
+            vec![0.0, 70.0, 0.0],
+        ];
+
+        let full_syn_e = vec![
+            vec![0.0, -40.0, 0.0],
+            vec![-50.0, 0.0, 0.0],
+            vec![0.0, -30.0, 0.0],
+        ];
+
+        let full_gap_g = vec![
+            vec![0.0, 90.0, 0.0],
+            vec![90.0, 0.0, 150.0],
+            vec![0.0, 150.0, 0.0],
+        ];
+        
+        let result = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+
+        let expected = vec![-32.0034, -45.4518, -48.6413];
+
+        for i in 0..3{
+            assert!((result[i] - expected[i]).abs() < 0.001);
+        }
+
+    }
+
+}
