@@ -224,6 +224,7 @@ impl World {
 
 //Small Genome
 impl World {
+
     pub fn small_random_population(
         &mut self,
         specification: &Specification,
@@ -235,13 +236,13 @@ impl World {
     }
 
     pub fn small_random_genome(&mut self, specification: &Specification) -> SmallGenome {
-        let syn_g = self.rng.gen_range(1f64..200f64);
+        let syn_g = self.rng.gen_range(1f64..500f64);
         let syn_e_in = self.rng.gen_range(-100f64..100f64);
         let syn_e_ex = self.rng.gen_range(-100f64..100f64);
-        let gap_g = self.rng.gen_range(1f64..200f64);
-        let gate_beta = self.rng.gen_range(0.01f64..2f64);
+        let gap_g = self.rng.gen_range(1f64..500f64);
+        let gate_beta = self.rng.gen_range(-2f64..2f64);
         let gate_adjust = self.rng.gen_range(-70f64..70f64);
-        let leak_g = self.rng.gen_range(1f64..200f64);
+        let leak_g = self.rng.gen_range(1f64..500f64);
         let leak_e = self.rng.gen_range(-100f64..100f64);
 
         let rate = self.rng.gen_range(0.01f64..1f64);
@@ -275,15 +276,132 @@ impl World {
         dna_rate: f64,
         heat: f64,
     ) {
-        for genome in population {
+        for genome in population.iter_mut().skip(0) {
             if self.rng.gen_bool(genome_rate) {
                 self.small_mutate_genome(genome, dna_rate, heat);
             }
         }
     }
 
-    fn small_mutate_genome(&mut self, _genome: &mut SmallGenome, _rate: f64, _heat: f64) {
-        todo!();
+    fn small_mutate_genome(&mut self, genome: &mut SmallGenome, rate: f64, heat: f64) {
+
+        self.mutate_value(&mut genome.syn_g, rate, -100.0, 100.0, 0.1, 2000.0, heat);
+        self.mutate_value(&mut genome.syn_e_ex, rate, -100.0, 100.0, -200.0, 200.0, heat);
+        self.mutate_value(&mut genome.syn_e_in, rate, -100.0, 100.0, -200.0, 200.0, heat);
+        self.mutate_value(&mut genome.gap_g, rate, -100.0, 100.0, 0.1, 2000.0, heat);
+        self.mutate_value(&mut genome.leak_g, rate, -100.0, 100.0, 0.1, 2000.0, heat);
+        self.mutate_value(&mut genome.leak_e, rate, -100.0, 100.0, -200.0, 200.0, heat);
+        self.mutate_value(&mut genome.gate_beta, rate, -10.0, 10.0, -10.0, 10.0, heat);
+
+        genome.syn_types.iter_mut().for_each(|x| {
+            if self.rng.gen_bool(rate * heat){
+                *x = match x{
+                    SynapseType::Excitatory => SynapseType::Inhibitory,
+                    SynapseType::Inhibitory => SynapseType::Excitatory,
+                }
+            }
+        });
+    }
+
+    pub fn small_crossover(&mut self, population: &mut Vec<SmallGenome>) {
+
+        let inital_len = population.len();
+
+        for i in 0..inital_len {
+            for j in i + 1..inital_len {
+                if i == j {
+                    continue;
+                }
+                let (a_child, b_child) = self.small_random_breed(&population[i], &population[j]);
+                population.push(a_child);
+                population.push(b_child);
+            }
+        }
+    }
+
+    fn small_random_breed(&mut self, x_parent: &SmallGenome, y_parent: &SmallGenome) -> (SmallGenome, SmallGenome) {
+        let mut a_child = SmallGenome::new();
+        let mut b_child = SmallGenome::new();
+
+        if self.rng.gen(){
+            a_child.syn_g = x_parent.syn_g;
+            b_child.syn_g = y_parent.syn_g;
+        }
+        else{
+            b_child.syn_g = x_parent.syn_g;
+            a_child.syn_g = y_parent.syn_g;
+        }
+        
+        if self.rng.gen(){
+            a_child.syn_e_in = x_parent.syn_e_in;
+            b_child.syn_e_in = y_parent.syn_e_in;
+        }
+        else{
+            b_child.syn_e_in = x_parent.syn_e_in;
+            a_child.syn_e_in = y_parent.syn_e_in;
+        }
+
+        if self.rng.gen(){
+            a_child.syn_e_ex = x_parent.syn_e_ex;
+            b_child.syn_e_ex = y_parent.syn_e_ex;
+        }
+        else{
+            b_child.syn_e_ex = x_parent.syn_e_ex;
+            a_child.syn_e_ex = y_parent.syn_e_ex;
+        }
+
+        if self.rng.gen(){
+            a_child.gap_g = x_parent.gap_g;
+            b_child.gap_g = y_parent.gap_g;
+        }
+        else{
+            b_child.gap_g = x_parent.gap_g;
+            a_child.gap_g = y_parent.gap_g;
+        }
+
+
+        if self.rng.gen(){
+            a_child.leak_g = x_parent.leak_g;
+            b_child.leak_g = y_parent.leak_g;
+        }
+        else{
+            b_child.leak_g = x_parent.leak_g;
+            a_child.leak_g = y_parent.leak_g;
+        }
+
+
+        if self.rng.gen(){
+            a_child.leak_e = x_parent.leak_e;
+            b_child.leak_e = y_parent.leak_e;
+        }
+        else{
+            b_child.leak_e = x_parent.leak_e;
+            a_child.leak_e = y_parent.leak_e;
+        }
+
+
+        if self.rng.gen(){
+            a_child.gate_beta = x_parent.gate_beta;
+            b_child.gate_beta = y_parent.gate_beta;
+        }
+        else{
+            b_child.gate_beta = x_parent.gate_beta;
+            a_child.gate_beta = y_parent.gate_beta;
+        }
+
+        for i in 0..x_parent.syn_types.len() {
+            if self.rng.gen() {
+                a_child.syn_types.push(x_parent.syn_types[i]);
+
+                b_child.syn_types.push(y_parent.syn_types[i]);
+            } else {
+                b_child.syn_types.push(x_parent.syn_types[i]);
+
+                a_child.syn_types.push(y_parent.syn_types[i]);
+            }
+        }
+
+        (a_child, b_child)
     }
 }
 

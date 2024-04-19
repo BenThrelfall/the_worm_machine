@@ -1,5 +1,7 @@
 use std::{fs::File, io::{BufReader, BufWriter}};
 
+use itertools::Itertools;
+use rand::Rng;
 use rayon::prelude::*;
 
 use crate::{
@@ -84,7 +86,64 @@ pub fn evolutionary_training(){
 
 }
 
-fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>) {
+pub fn small_evolutionary_training(){
+
+    let (time_trace, full_syn_g, full_gap_g, _full_syn_e) = read_data();
+
+    let file = File::open("processed_data/sensory_indices.json").unwrap();
+    let buffer = BufReader::new(file);
+    let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
+
+    let factory = Factory::new(&full_syn_g, &full_gap_g);
+    let specification = factory.get_specification();
+
+    let mut world = World::new();
+    let mut population = world.small_random_population(&specification, 100);
+
+    let mut heat = 1f64;
+
+    let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+    let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+
+    let mut prev_best: f64 = 100000.0;
+
+    for i in 0..100 {
+
+        if i == 5{
+            heat = 0.1;
+        }
+
+        let results: Vec<f64> = population
+            .par_iter_mut()
+            .map(|genome| factory.build_with_calc_gates(genome.expand(&specification)))
+            .map(|mut model| model.recorded_run_sensory(voltage.clone(), gates.clone(), 0.01, 300.0, &time_trace, 15.0, -10.0, &sensory_indices, 10000).error)
+            .collect();
+
+
+        let selection : Vec<(&SmallGenome, f64)> = population.iter()
+                    .zip(results)
+                    .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .take(10)
+                    .collect();
+
+        let best = selection.first().unwrap().1;
+        println!("Best: {:.3} d {:.3} d% {:.3} (heat {})", best, prev_best-best, (prev_best-best)/prev_best, heat);
+        prev_best = best;
+
+        population = selection.iter().map(|x| x.0.clone()).collect();
+
+        let file = File::create("results/small_evolution_latest_population.json").unwrap();
+        let buffer = BufWriter::new(file);
+        serde_json::to_writer(buffer, &population).unwrap();
+        
+
+        world.small_crossover(&mut population);
+        world.small_mutate(&mut population, 0.25, 0.25, heat);
+
+    }
+}
+
+pub fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>) {
 
     let neurons: Vec<String>;
     let flat_g_syn: Vec<f64>;
@@ -164,7 +223,7 @@ pub fn experimental_run(){
         leak_e: -35.0,
     };
 
-    let multiplier = 12.0;
+    let multiplier = 9.0;
     let adjust = -13.0;
 
     let mut_trace = time_trace.clone();
@@ -178,7 +237,7 @@ pub fn experimental_run(){
 
     println!("{}", result.error);
 
-    let file = File::create("results/tmp_can_delete.json").unwrap();
+    let file = File::create("results/tmp.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &result.volt_record).unwrap();
 
@@ -198,6 +257,10 @@ pub fn gate_calculation(){
     let buffer = BufReader::new(file);
     let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
 
+    let file = File::open("results/small_evolution_latest_population.json").unwrap();
+    let buffer = BufReader::new(file);
+    let genomes : Vec<SmallGenome> = serde_json::from_reader(buffer).unwrap();
+
     let factory = Factory::new(&full_syn_g, &full_gap_g);
     let specification = factory.get_specification();
 
@@ -211,19 +274,33 @@ pub fn gate_calculation(){
     println!("{}", syn_types.len());
 
     let genome = SmallGenome{
-        syn_g: 0.001,
-        syn_e_in: -45.0,
+        syn_g: 0.0001,
+        syn_e_in: -0.0,
         syn_e_ex: 0.0,
+        syn_types: syn_types.clone(),
+        gap_g: 0.0001,
+        gate_beta: 0.125,
+        gate_adjust: 0.0,
+        leak_g: 0.0001,
+        leak_e: 0.0,
+    };
+
+    let default_genome = SmallGenome{
+        syn_g: 100.0,
+        syn_e_in: -45.0,
+        syn_e_ex: 100.0,
         syn_types,
-        gap_g: 0.001,
+        gap_g: 1000.0,
         gate_beta: 0.125,
         gate_adjust: -15.0,
-        leak_g: 0.001,
+        leak_g: 10.0,
         leak_e: -35.0,
     };
 
-    let multiplier = 12.0;
-    let adjust = -13.0;
+    let genome = genomes.first().unwrap();
+
+    let multiplier = 15.0;
+    let adjust = -10.0;
 
     let mut_trace = time_trace.clone();
 
@@ -233,11 +310,11 @@ pub fn gate_calculation(){
     let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
     let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
 
-    let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+    let result = model.recorded_run_sensory(voltage, gates, 0.01, 300.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
 
     println!("{}", result.error);
 
-    let file = File::create("results/tmp_runs_new.json").unwrap();
+    let file = File::create("results/evolved_run_with_gates.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &result.volt_record).unwrap();
 
@@ -282,13 +359,23 @@ pub fn proprocess_experiment_with_gate_calc(){
 
     let mut final_results = Vec::new();
 
-    for i in -100..100{
+    let mut rng = rand_pcg::Pcg32::new(0xcafef00de15ea5e5, 0xa02bdbf7bb3c0a7);
+
+    let mut population : Vec<(f64, f64)> = (0..100).map(|_| (rng.gen_range(-100.0..100.0), rng.gen_range(-100.0..100.0))).collect();
+    let mut heat = 1f64;
+
+    for i in 0..20{
         println!("Loop Complete");
-        let mut loop_result = (-100..100).into_par_iter().map(|j|{
+
+        if i == 10{
+            heat = 0.1;
+        }
+
+        let loop_result : Vec<(f64, f64, f64)> = (0..population.len()).into_par_iter().map(|j|{
             let mut_trace = time_trace.clone();
 
-            let multiplier = i as f64;
-            let adjust = j as f64;
+            let multiplier = population[j].0;
+            let adjust = population[j].1;
 
             let mut model = factory.build(genome.expand(&specification));
             model.gate_adjust = gate_calc.clone();
@@ -296,16 +383,165 @@ pub fn proprocess_experiment_with_gate_calc(){
             let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
             let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
         
-            let result = model.recorded_run_sensory(voltage, gates, 0.01, 10.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+            let result = model.recorded_run_sensory(voltage, gates, 0.01, 600.0, &mut_trace, multiplier, adjust, &sensory_indices, 100);
 
             (multiplier, adjust, result.error)
         }).collect();
 
-        final_results.append(&mut loop_result);
+        final_results.append(&mut loop_result.clone());
+
+        let selection : Vec<(f64, f64, f64)> = loop_result.iter().sorted_by(|a, b| a.2.partial_cmp(&b.2).unwrap())
+        .take(10).map(|x| *x)
+        .collect();
+
+        population.clear();
+
+        for (i, _) in selection.iter().enumerate(){
+            population.push((selection[i].0, selection[i].1));
+            for (j, _) in selection.iter().enumerate(){
+                if i != j{
+                    population.push((selection[i].0, selection[j].1));
+                    population.push((selection[j].0, selection[i].1));
+                }
+            } 
+        }
+
+        println!("{:?}; {}", selection.first().unwrap(), population.len());
+
+        for individual in population.iter_mut().skip(1){
+            if rng.gen_bool(0.99){
+                individual.0 += rng.gen_range(-10.0..10.0) * heat;
+                individual.1 += rng.gen_range(-10.0..10.0) * heat;
+            }
+        }
     }
 
 
-    let file = File::create("results/preprocessing_tests_with_calc_gates.json").unwrap();
+    let file = File::create("results/preprocessing_tests_evolution_long_calc_gates.json").unwrap();
+    let buffer = BufWriter::new(file);
+    serde_json::to_writer(buffer, &final_results).unwrap();
+
+}
+
+
+pub fn model_vs_null_performance(){
+
+    let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+
+    let leak_g = (0..280).map(|_| 10f64).collect();
+    let leak_e = (0..280).map(|_| -35f64).collect();
+
+    let gate_calc = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+
+    let file = File::open("processed_data/sensory_indices.json").unwrap();
+    let buffer = BufReader::new(file);
+    let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
+
+    let factory = Factory::new(&full_syn_g, &full_gap_g);
+    let specification = factory.get_specification();
+
+    let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(_, g)| **g != 0.0).map(|(e, _)| if *e == 0.0{
+        SynapseType::Excitatory
+    }else{
+        SynapseType::Inhibitory
+    }).collect();
+
+    println!("{}", specification.syn_len);
+    println!("{}", syn_types.len());
+
+    let null_genome = SmallGenome{
+        syn_g: 0.0001,
+        syn_e_in: -0.0,
+        syn_e_ex: 0.0,
+        syn_types: syn_types.clone(),
+        gap_g: 0.0001,
+        gate_beta: 0.125,
+        gate_adjust: 0.0,
+        leak_g: 0.0001,
+        leak_e: 0.0,
+    };
+
+    let default_genome = SmallGenome{
+        syn_g: 100.0,
+        syn_e_in: -45.0,
+        syn_e_ex: 0.0,
+        syn_types,
+        gap_g: 100.0,
+        gate_beta: 0.125,
+        gate_adjust: 0.0,
+        leak_g: 10.0,
+        leak_e: -35.0,
+    };
+
+    let mut final_results = Vec::new();
+
+    let mut rng = rand_pcg::Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
+
+    let mut population : Vec<(f64, f64)> = (0..100).map(|_| (rng.gen_range(-100.0..100.0), rng.gen_range(-100.0..100.0))).collect();
+    let mut heat = 1f64;
+
+    for i in 0..20{
+        println!("Loop Complete");
+
+        if i == 10{
+            heat = 0.1;
+        }
+
+        let loop_result : Vec<(f64, f64, f64)> = (0..population.len()).into_par_iter().map(|j|{
+            let mut_trace = time_trace.clone();
+
+            let multiplier = population[j].0;
+            let adjust = population[j].1;
+
+            let mut model = factory.build(default_genome.expand(&specification));
+            model.gate_adjust = gate_calc.clone();
+
+            let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+            let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+        
+            let result = model.recorded_run_sensory(voltage, gates, 0.01, 100.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+
+            let mut model = factory.build(null_genome.expand(&specification));
+            model.gate_adjust = gate_calc.clone();
+
+            let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+            let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+
+            let null_result = model.recorded_run_sensory(voltage, gates, 0.01, 100.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+
+            (multiplier, adjust, result.error - null_result.error)
+        }).collect();
+
+        final_results.append(&mut loop_result.clone());
+
+        let selection : Vec<(f64, f64, f64)> = loop_result.iter().sorted_by(|a, b| a.2.partial_cmp(&b.2).unwrap())
+        .take(10).map(|x| *x)
+        .collect();
+
+        population.clear();
+
+        for (i, _) in selection.iter().enumerate(){
+            population.push((selection[i].0, selection[i].1));
+            for (j, _) in selection.iter().enumerate(){
+                if i != j{
+                    population.push((selection[i].0, selection[j].1));
+                    population.push((selection[j].0, selection[i].1));
+                }
+            } 
+        }
+
+        println!("{:?}; {}", selection.first().unwrap(), population.len());
+
+        for individual in population.iter_mut().skip(1){
+            if rng.gen_bool(0.99){
+                individual.0 += rng.gen_range(-10.0..10.0) * heat;
+                individual.1 += rng.gen_range(-10.0..10.0) * heat;
+            }
+        }
+    }
+
+
+    let file = File::create("results/preprocessing_tests_evolution_long_model_disabled.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &final_results).unwrap();
 

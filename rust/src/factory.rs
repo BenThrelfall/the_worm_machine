@@ -1,5 +1,9 @@
-use crate::{genetics::Genome, neuron::Network};
+use std::{fs::File, io::BufWriter};
 
+use crate::{
+    genetics::{calculate_gate_adjust, Genome},
+    neuron::Network,
+};
 
 pub struct Factory {
     pub model_len: usize,
@@ -60,11 +64,49 @@ impl Factory {
         }
     }
 
-    pub fn build(
-        &self,
-        genome : Genome,
-    ) -> Network {
+    pub fn build_with_calc_gates(&self, genome: Genome) -> Network {
 
+        let mut full_syn_g: Vec<Vec<f64>> = (0..self.model_len)
+            .map(|_| (0..self.model_len).map(|_| 0.0).collect())
+            .collect();
+
+        let mut full_syn_e: Vec<Vec<f64>> = (0..self.model_len)
+            .map(|_| (0..self.model_len).map(|_| 0.0).collect())
+            .collect();
+
+        let mut full_gap_g: Vec<Vec<f64>> = (0..self.model_len)
+            .map(|_| (0..self.model_len).map(|_| 0.0).collect())
+            .collect();
+
+        let mut model = self.build(genome);
+
+        for row in 0..self.model_len{
+            for compact_col in 0..model.syn_g[row].len(){
+                let full_col = model.syn_indices[row][compact_col];
+                full_syn_g[row][full_col] = model.syn_g[row][compact_col];
+                full_syn_e[row][full_col] = model.syn_e[row][compact_col];
+            }
+        }
+
+        for row in 0..self.model_len{
+            for compact_col in 0..model.gap_g[row].len(){
+                let full_col = model.gap_indices[row][compact_col];
+                full_gap_g[row][full_col] = model.gap_g[row][compact_col];
+            }
+        }
+
+        let file = File::create("processed_data/proc_calc_syn_g.json").unwrap();
+        let buffer = BufWriter::new(file);
+        serde_json::to_writer(buffer, &(full_syn_e.iter().flatten().map(|x| *x).collect::<Vec<f64>>())).unwrap();
+
+        let calc_gates = calculate_gate_adjust(&model.leak_g, &model.leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+
+        model.gate_adjust = calc_gates;
+
+        return model;
+    }
+
+    pub fn build(&self, genome: Genome) -> Network {
         let syn_indices = self.syn_indices.clone();
         let gap_indices = self.gap_indices.clone();
 
@@ -72,12 +114,11 @@ impl Factory {
         let mut syn_e = Vec::new();
 
         let mut count = 0;
-        for (i, line) in syn_indices.iter().enumerate(){
-
+        for (i, line) in syn_indices.iter().enumerate() {
             syn_g.push(Vec::new());
             syn_e.push(Vec::new());
 
-            for _ in line.iter(){
+            for _ in line.iter() {
                 syn_g[i].push(genome.flat_syn_g[count]);
                 syn_e[i].push(genome.flat_syn_e[count]);
                 count += 1;
@@ -87,11 +128,10 @@ impl Factory {
         let mut gap_g = Vec::new();
 
         let mut count = 0;
-        for (i, line) in gap_indices.iter().enumerate(){
-
+        for (i, line) in gap_indices.iter().enumerate() {
             gap_g.push(Vec::new());
 
-            for _ in line.iter(){
+            for _ in line.iter() {
                 gap_g[i].push(genome.flat_gap_g[count]);
                 count += 1;
             }
@@ -101,7 +141,12 @@ impl Factory {
         let syn_int: Vec<f64> = genome.leak_g.clone();
         let gap_co: Vec<f64> = gap_g.iter().map(|line| line.iter().sum()).collect();
         let gap_int: Vec<f64> = genome.leak_g.clone();
-        let leak_int: Vec<f64> = genome.leak_g.iter().zip(genome.leak_e.iter()).map(|(g, e)| g * e).collect();
+        let leak_int: Vec<f64> = genome
+            .leak_g
+            .iter()
+            .zip(genome.leak_e.iter())
+            .map(|(g, e)| g * e)
+            .collect();
 
         let leak_g = genome.leak_g;
         let leak_e = genome.leak_e;
@@ -124,6 +169,114 @@ impl Factory {
             gap_indices,
             gap_g,
         }
-
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{genetics::{calculate_gate_adjust, Genome, SmallGenome, SynapseType}, programs::read_data};
+
+    use super::Factory;
+
+    #[test]
+    fn small_build_test() {
+        let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+
+        let leak_g = (0..280).map(|_| 10f64).collect();
+        let leak_e = (0..280).map(|_| -35f64).collect();
+        let gate_beta = (0..280).map(|_| 0.125f64).collect();
+        let gate_adjust = (0..280).map(|_| -15f64).collect();
+
+        let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(_, g)| **g != 0.0).map(|(e, _)| if *e == 0.0{
+            SynapseType::Excitatory
+        }else{
+            SynapseType::Inhibitory
+        }).collect();
+
+        let default_genome = SmallGenome{
+            syn_g: 100.0,
+            syn_e_in: -45.0,
+            syn_e_ex: 0.0,
+            syn_types,
+            gap_g: 100.0,
+            gate_beta: 0.125,
+            gate_adjust: -15.0,
+            leak_g: 10.0,
+            leak_e: -35.0,
+        };
+
+        let flat_gap_g : Vec<f64> = full_gap_g.iter().flatten().filter(|x| **x != 0.0).map(|x| *x).collect();
+        let mut flat_syn_g = Vec::new();
+        let mut flat_syn_e = Vec::new();
+
+        for row in 0..full_syn_g.len(){
+            for col in 0..full_syn_g[row].len(){
+                if full_syn_g[row][col] != 0.0{
+                    flat_syn_g.push(full_syn_g[row][col]);
+                    flat_syn_e.push(full_syn_e[row][col]);
+                }
+            }
+        }
+
+        let big_genome = Genome{
+            flat_syn_g,
+            flat_syn_e,
+            flat_gap_g,
+            gate_beta,
+            gate_adjust,
+            leak_g,
+            leak_e,
+        };
+
+        let factory = Factory::new(&full_syn_g, &full_gap_g);
+        let specification = factory.get_specification();
+
+        let model = factory.build(default_genome.expand(&specification));
+        let big_model = factory.build(big_genome);
+
+        assert_eq!(model.leak_g, big_model.leak_g);
+        assert_eq!(model.gate_adjust, big_model.gate_adjust);
+        assert_eq!(model.gap_g, big_model.gap_g);
+        assert_eq!(model.syn_g, big_model.syn_g);
+        assert_eq!(model.syn_e, big_model.syn_e);
+
+    }
+
+
+    #[test]
+    fn gate_calc_build_test() {
+        let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+
+        let leak_g = (0..280).map(|_| 10f64).collect();
+        let leak_e = (0..280).map(|_| -35f64).collect();
+    
+        let gate_calc = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+
+        let syn_types : Vec<SynapseType> = full_syn_e.iter().flatten().zip(full_syn_g.iter().flatten()).filter(|(_, g)| **g != 0.0).map(|(e, _)| if *e == 0.0{
+            SynapseType::Excitatory
+        }else{
+            SynapseType::Inhibitory
+        }).collect();
+
+        let default_genome = SmallGenome{
+            syn_g: 100.0,
+            syn_e_in: -45.0,
+            syn_e_ex: 0.0,
+            syn_types,
+            gap_g: 100.0,
+            gate_beta: 0.125,
+            gate_adjust: -15.0,
+            leak_g: 10.0,
+            leak_e: -35.0,
+        };
+
+        let factory = Factory::new(&full_syn_g, &full_gap_g);
+        let specification = factory.get_specification();
+
+        let model = factory.build_with_calc_gates(default_genome.expand(&specification));
+
+        assert_eq!(model.leak_g, leak_g);
+        assert_eq!(model.gate_adjust, gate_calc);
+    }
+}
+

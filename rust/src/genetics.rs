@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::factory::Specification;
 
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Genome {
     pub flat_syn_g: Vec<f64>,
@@ -62,7 +61,7 @@ pub fn calculate_gate_adjust(
         leak_e[i]
             + (1.0 / leak_g[i])
                 * (0..length)
-                    .map(|j| (full_syn_e[i][j] * full_gap_g[i][j]) / 2.0)
+                    .map(|j| (full_syn_e[i][j] * full_syn_g[i][j]) / 2.0)
                     .sum::<f64>()
     });
 
@@ -73,11 +72,13 @@ pub fn calculate_gate_adjust(
     solution.iter().map(|n| *n).collect()
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum SynapseType {
     Excitatory,
     Inhibitory,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SmallGenome {
     pub syn_g: f64,
     pub syn_e_in: f64,
@@ -91,6 +92,20 @@ pub struct SmallGenome {
 }
 
 impl SmallGenome {
+    pub fn new() -> SmallGenome {
+        SmallGenome {
+            syn_g: 0.0,
+            syn_e_in: 0.0,
+            syn_e_ex: 0.0,
+            syn_types: Vec::new(),
+            gap_g: 0.0,
+            gate_beta: 0.0,
+            gate_adjust: 0.0,
+            leak_g: 0.0,
+            leak_e: 0.0,
+        }
+    }
+
     pub fn expand(&self, specification: &Specification) -> Genome {
         let flat_syn_g = self.syn_types.iter().map(|_| self.syn_g).collect();
         let flat_syn_e = self
@@ -133,7 +148,6 @@ mod tests {
 
     #[test]
     fn gate_calc_test() {
-
         let leak_g = vec![10.0, 15.0, 8.0];
         let leak_e = vec![-35.0, -20.0, -40.0];
 
@@ -154,15 +168,13 @@ mod tests {
             vec![90.0, 0.0, 150.0],
             vec![0.0, 150.0, 0.0],
         ];
-        
+
         let result = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
 
-        let expected = vec![-32.0034, -45.4518, -48.6413];
+        let expected = vec![-24.6849, -29.595, -30.0997];
 
-        for i in 0..3{
+        for i in 0..3 {
             assert!((result[i] - expected[i]).abs() < 0.001);
         }
-
     }
-
 }
