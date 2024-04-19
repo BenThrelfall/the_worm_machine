@@ -107,7 +107,7 @@ pub fn small_evolutionary_training(){
 
     let mut prev_best: f64 = 100000.0;
 
-    for i in 0..100 {
+    for i in 0..10000 {
 
         if i == 5{
             heat = 0.1;
@@ -251,7 +251,7 @@ pub fn gate_calculation(){
     let leak_g = (0..280).map(|_| 10f64).collect();
     let leak_e = (0..280).map(|_| -35f64).collect();
 
-    let gate_calc = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
+    let default_gate_calc = calculate_gate_adjust(&leak_g, &leak_e, &full_syn_g, &full_syn_e, &full_gap_g);
 
     let file = File::open("processed_data/sensory_indices.json").unwrap();
     let buffer = BufReader::new(file);
@@ -304,8 +304,7 @@ pub fn gate_calculation(){
 
     let mut_trace = time_trace.clone();
 
-    let mut model = factory.build(genome.expand(&specification));
-    model.gate_adjust = gate_calc;
+    let mut model = factory.build_with_calc_gates(genome.expand(&specification));
 
     let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
     let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
@@ -314,7 +313,7 @@ pub fn gate_calculation(){
 
     println!("{}", result.error);
 
-    let file = File::create("results/evolved_run_with_gates.json").unwrap();
+    let file = File::create("results/huge_evolved_run_with_gates.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &result.volt_record).unwrap();
 
