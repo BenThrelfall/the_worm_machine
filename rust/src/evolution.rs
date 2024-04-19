@@ -276,7 +276,7 @@ impl World {
         dna_rate: f64,
         heat: f64,
     ) {
-        for genome in population.iter_mut().skip(0) {
+        for genome in population.iter_mut().skip(1) {
             if self.rng.gen_bool(genome_rate) {
                 self.small_mutate_genome(genome, dna_rate, heat);
             }

@@ -98,7 +98,14 @@ pub fn small_evolutionary_training(){
     let specification = factory.get_specification();
 
     let mut world = World::new();
-    let mut population = world.small_random_population(&specification, 100);
+
+    let file = File::open("results/small_evolution_latest_population.json").unwrap();
+    let buffer = BufReader::new(file);
+    let mut population : Vec<SmallGenome> = serde_json::from_reader(buffer).unwrap();
+
+    for item in population.iter(){
+        println!("gap {} syn {} ex {} in {} leak g {} e {}", item.gap_g, item.syn_g, item.syn_e_ex, item.syn_e_in, item.leak_g, item.leak_e);
+    }
 
     let mut heat = 1f64;
 
@@ -110,7 +117,7 @@ pub fn small_evolutionary_training(){
     for i in 0..10000 {
 
         if i == 5{
-            heat = 0.1;
+            heat = 0.01;
         }
 
         let results: Vec<f64> = population
@@ -138,7 +145,10 @@ pub fn small_evolutionary_training(){
         
 
         world.small_crossover(&mut population);
-        world.small_mutate(&mut population, 0.25, 0.25, heat);
+
+        population.push(population.first().unwrap().clone());
+
+        world.small_mutate(&mut population, 0.99, 0.99, heat);
 
     }
 }
@@ -257,7 +267,7 @@ pub fn gate_calculation(){
     let buffer = BufReader::new(file);
     let sensory_indices : Vec<usize> = serde_json::from_reader(buffer).unwrap();
 
-    let file = File::open("results/small_evolution_latest_population.json").unwrap();
+    let file = File::open("final_results/first_round_small_evolution_latest_population.json").unwrap();
     let buffer = BufReader::new(file);
     let genomes : Vec<SmallGenome> = serde_json::from_reader(buffer).unwrap();
 
@@ -281,8 +291,8 @@ pub fn gate_calculation(){
         gap_g: 0.0001,
         gate_beta: 0.125,
         gate_adjust: 0.0,
-        leak_g: 0.0001,
-        leak_e: 0.0,
+        leak_g: 0.26,
+        leak_e: -8.8,
     };
 
     let default_genome = SmallGenome{
@@ -309,11 +319,11 @@ pub fn gate_calculation(){
     let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
     let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
 
-    let result = model.recorded_run_sensory(voltage, gates, 0.01, 300.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
+    let result = model.recorded_run_sensory(voltage, gates, 0.01, 900.0, &mut_trace, multiplier, adjust, &sensory_indices, 10);
 
     println!("{}", result.error);
 
-    let file = File::create("results/huge_evolved_run_with_gates.json").unwrap();
+    let file = File::create("results/second_evolved_run_with_gates.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &result.volt_record).unwrap();
 
