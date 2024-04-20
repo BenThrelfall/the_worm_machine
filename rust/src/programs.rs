@@ -1,88 +1,142 @@
-use std::{fs::File, io::{BufReader, BufWriter}};
+use std::{fs::File, io::{BufReader, BufWriter}, time::Instant};
 
 use itertools::Itertools;
 use rayon::prelude::*;
 
 use crate::{
-    data::read_data, evolution::{evaluate, predict, World}, factory::Factory, genetics::{SmallGenome, SynapseType}
+    data::read_data, evolution::World, factory::Factory, genetics::{Genome, SmallGenome, SynapseType}
 };
 
 pub fn evolutionary_training(){
 
-    let (time_trace, full_syn_g, full_gap_g, _full_syn_e, _) = read_data();
+    let (time_trace, full_syn_g, full_gap_g, _full_syn_e, sensory_indices) = read_data();
 
     let factory = Factory::new(&full_syn_g, &full_gap_g);
     let specification = factory.get_specification();
 
     let mut world = World::new();
-    let mut population = world.random_population(&specification, 100);
 
-    use std::time::Instant;
-    let now = Instant::now();
+    let mut population = world.random_population(&specification, 500);
 
-    let mut heat = 1f64;
+    let mut heat = 0.3f64;
 
-    let mut prev_total;
-    let mut total = 2097840300f64;
+    let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+    let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
 
-    for i in 0..100 {
+    let mut prev_best: f64 = 100000.0;
+
+    for i in 0..2000 {
+
+        if i == 5{
+            heat = 0.1;
+        }
+
+        if i == 500{
+            heat = 0.01;
+        }
+
+        let now = Instant::now();
+
+        let results: Vec<f64> = population
+            .par_iter_mut()
+            .map(|genome| factory.build_with_calc_gates(genome.clone()))
+            .map(|mut model| model.recorded_run_sensory(voltage.clone(), gates.clone(), 0.01, 300.0, &time_trace, 15.0, -10.0, &sensory_indices, 10000).error)
+            .collect();
+
+
+        let selection : Vec<(&Genome, f64)> = population.iter()
+                    .zip(results)
+                    .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .take(10)
+                    .collect();
+
+        let best = selection.first().unwrap().1;
+
+        population = selection.iter().map(|x| x.0.clone()).collect();
+
+        let file = File::create("results/full_no_calc_gates_evolution_latest_population.json").unwrap();
+        let buffer = BufWriter::new(file);
+        serde_json::to_writer(buffer, &population).unwrap();
         
+
+        world.crossover(&mut population);
+
+        population.push(population.first().unwrap().clone());
+
+        world.mutate(&mut population, 0.99, 0.99, heat);
+
+        let elapsed = now.elapsed();
+
+        println!("Best: {:.3} d {:.3} d% {:.3} (heat {}) (time {:.3?})", best, prev_best-best, (prev_best-best)/prev_best, heat, elapsed);
+        prev_best = best;
+
+    }
+}
+
+pub fn evolutionary_training_no_calc_gates(){
+
+    let (time_trace, full_syn_g, full_gap_g, _full_syn_e, sensory_indices) = read_data();
+
+    let factory = Factory::new(&full_syn_g, &full_gap_g);
+    let specification = factory.get_specification();
+
+    let mut world = World::new();
+
+    let mut population = world.random_population(&specification, 500);
+
+    let mut heat = 0.3f64;
+
+    let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
+    let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
+
+    let mut prev_best: f64 = 100000.0;
+
+    for i in 0..2000 {
+
+        if i == 5{
+            heat = 0.1;
+        }
+
+        if i == 500{
+            heat = 0.01;
+        }
+
+        let now = Instant::now();
+
         let results: Vec<f64> = population
             .par_iter_mut()
             .map(|genome| factory.build(genome.clone()))
-            .map(|mut model| evaluate(&mut model, 20, &time_trace))
+            .map(|mut model| model.recorded_run_sensory(voltage.clone(), gates.clone(), 0.01, 300.0, &time_trace, 15.0, -10.0, &sensory_indices, 10000).error)
             .collect();
 
-        prev_total = total;
-        total = results.iter().sum();
 
-        let change = (prev_total - total) / prev_total;
+        let selection : Vec<(&Genome, f64)> = population.iter()
+                    .zip(results)
+                    .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .take(10)
+                    .collect();
 
-        if change.abs() < 0.001{
-            //heat += 0.1;
-        }
+        let best = selection.first().unwrap().1;
 
-        println!("Total Error {} Error Change {} Heat {}", total, change, heat);
+        population = selection.iter().map(|x| x.0.clone()).collect();
 
-        population = world.selection(&population, &results, 10);
-
-        if i % 500 == 0{
-            let file = File::create("processed_data/latest_population.json").unwrap();
-            let buffer = BufWriter::new(file);
-            serde_json::to_writer(buffer, &population).unwrap();
-        }
+        let file = File::create("results/full_no_calc_gates_evolution_latest_population.json").unwrap();
+        let buffer = BufWriter::new(file);
+        serde_json::to_writer(buffer, &population).unwrap();
+        
 
         world.crossover(&mut population);
-        world.mutate(&mut population, 0.25, 0.25, heat);
 
-        heat *= 0.99;
+        population.push(population.first().unwrap().clone());
+
+        world.mutate(&mut population, 0.99, 0.99, heat);
+
+        let elapsed = now.elapsed();
+
+        println!("Best: {:.3} d {:.3} d% {:.3} (heat {}) (time {:.3?})", best, prev_best-best, (prev_best-best)/prev_best, heat, elapsed);
+        prev_best = best;
+
     }
-
-    let results: Vec<f64> = population
-        .par_iter_mut()
-        .map(|genome| factory.build(genome.clone()))
-        .map(|mut model| evaluate(&mut model, 20, &time_trace))
-        .collect();
-
-    population = world.selection(&population, &results, 10);
-
-    let file = File::create("processed_data/final_population.json").unwrap();
-    let buffer = BufWriter::new(file);
-    serde_json::to_writer(buffer, &population).unwrap();
-
-    let best = population.first().unwrap();
-    let mut best_model = factory.build(best.clone());
-
-    let final_data = predict(&mut best_model, 20, &time_trace);
-
-    let file = File::create("processed_data/prediction.json").unwrap();
-    let buffer = BufWriter::new(file);
-    serde_json::to_writer(buffer, &final_data).unwrap();
-
-    let elapsed = now.elapsed();
-
-    println!("Elapsed: {:.2?}", elapsed);
-
 }
 
 pub fn small_evolutionary_training(){

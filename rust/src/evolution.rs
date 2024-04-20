@@ -1,6 +1,5 @@
 use std::ops::{Mul, Neg};
 
-use itertools::Itertools;
 use rand::prelude::*;
 use rand_pcg::Pcg32;
 
@@ -65,21 +64,6 @@ impl World {
         }
     }
 
-    pub fn selection(
-        &mut self,
-        population: &Vec<Genome>,
-        results: &Vec<f64>,
-        count: usize,
-    ) -> Vec<Genome> {
-        population
-            .iter()
-            .zip(results)
-            .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-            .map(|x| x.0.clone())
-            .take(count)
-            .collect()
-    }
-
     pub fn crossover(&mut self, population: &mut Vec<Genome>) {
         let inital_len = population.len();
 
@@ -102,7 +86,7 @@ impl World {
         dna_rate: f64,
         heat: f64,
     ) {
-        for genome in population {
+        for genome in population.iter_mut().skip(1) {
             if self.rng.gen_bool(genome_rate) {
                 self.mutate_genome(genome, dna_rate, heat);
             }
@@ -142,7 +126,7 @@ impl World {
         self.mutate_vec(&mut genome.leak_g, rate, -100.0, 100.0, 1.0, 100.0, heat);
         self.mutate_vec(&mut genome.leak_e, rate, -100.0, 100.0, -500.0, 500.0, heat);
 
-        self.mutate_vec(&mut genome.gate_beta, rate, -1.0, 1.0, 0.0, 10.0, heat);
+        self.mutate_vec(&mut genome.gate_beta, rate, -10.0, 10.0, -10.0, 10.0, heat);
         self.mutate_vec(
             &mut genome.gate_adjust,
             rate,
