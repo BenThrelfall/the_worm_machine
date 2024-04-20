@@ -106,6 +106,34 @@ impl SmallGenome {
         }
     }
 
+    pub fn null_model(syn_types : Vec<SynapseType>) -> Self{
+        SmallGenome{
+            syn_g: 0.0001,
+            syn_e_in: -0.0,
+            syn_e_ex: 0.0,
+            syn_types: syn_types,
+            gap_g: 0.0001,
+            gate_beta: 0.125,
+            gate_adjust: 0.0,
+            leak_g: 0.26,
+            leak_e: -8.8,
+        }
+    }
+
+    pub fn default(syn_types : Vec<SynapseType>) -> Self{
+        SmallGenome{
+            syn_g: 100.0,
+            syn_e_in: -45.0,
+            syn_e_ex: 0.0,
+            syn_types,
+            gap_g: 100.0,
+            gate_beta: 0.125,
+            gate_adjust: -15.0,
+            leak_g: 10.0,
+            leak_e: -35.0,
+        }
+    }
+
     pub fn expand(&self, specification: &Specification) -> Genome {
         let flat_syn_g = self.syn_types.iter().map(|_| self.syn_g).collect();
         let flat_syn_e = self

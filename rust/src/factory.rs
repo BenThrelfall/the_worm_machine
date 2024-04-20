@@ -174,13 +174,13 @@ impl Factory {
 
 #[cfg(test)]
 mod tests {
-    use crate::{genetics::{calculate_gate_adjust, Genome, SmallGenome, SynapseType}, programs::read_data};
+    use crate::{genetics::{calculate_gate_adjust, Genome, SmallGenome, SynapseType}, data::read_data};
 
     use super::Factory;
 
     #[test]
     fn small_build_test() {
-        let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+        let (_, full_syn_g, full_gap_g, full_syn_e, _) = read_data();
 
         let leak_g = (0..280).map(|_| 10f64).collect();
         let leak_e = (0..280).map(|_| -35f64).collect();
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn gate_calc_build_test() {
-        let (time_trace, full_syn_g, full_gap_g, full_syn_e) = read_data();
+        let (_, full_syn_g, full_gap_g, full_syn_e, _) = read_data();
 
         let leak_g = (0..280).map(|_| 10f64).collect();
         let leak_e = (0..280).map(|_| -35f64).collect();
