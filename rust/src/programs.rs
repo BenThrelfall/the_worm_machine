@@ -347,7 +347,7 @@ pub fn small_evolutionary_training() {
 pub fn gate_calculation() {
     let (time_trace, full_syn_g, full_gap_g, full_syn_e, sensory_indices) = read_data();
 
-    let file = File::open("final_results/first_round_full_evolution_latest_population.json").unwrap();
+    let file = File::open("final_results/second_round_full_no_calc_gates_evolution_latest_population.json").unwrap();
     let buffer = BufReader::new(file);
     let genomes: Vec<Genome> = serde_json::from_reader(buffer).unwrap();
 
@@ -376,7 +376,7 @@ pub fn gate_calculation() {
     let multiplier = 15.0;
     let adjust = -10.0;
 
-    let mut model = factory.build_with_calc_gates(genome.clone());
+    let mut model = factory.build(genome.clone());
 
     let voltage: Vec<f64> = (0..specification.model_len).map(|_| 0.0).collect();
     let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
