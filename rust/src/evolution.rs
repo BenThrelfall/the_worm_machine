@@ -1,15 +1,67 @@
 use std::ops::{Mul, Neg};
 
+use itertools::Itertools;
 use rand::prelude::*;
 use rand_pcg::Pcg32;
+use serde::{Deserialize, Serialize};
 
 use crate::{data::Frame, factory::Specification, genetics::{Genome, SmallGenome, SynapseType}, neuron::Network};
 
 const DEFAULT_VOLTAGE: f64 = 0.0;
 const DEFAULT_GATE: f64 = 0.0;
 
+#[derive(Serialize, Deserialize)]
+pub struct Creature<T>{
+    pub should_mutate: bool,
+
+    genome: T,
+    error: Option<f64>,
+}
+
+impl<T> Creature<T>{
+
+    pub fn new(genome: T) -> Self{
+        Creature{
+            genome,
+            error: None,
+            should_mutate: false,
+        }
+    }
+
+    pub fn new_mutant(genome: T) -> Self{
+        Creature{
+            genome,
+            error: None,
+            should_mutate: true,
+        }
+    }
+
+    pub fn eval(&mut self, error: f64){
+
+        if self.error.is_some(){
+            panic!("Evaling creature that has already been evaled");
+        }
+
+        self.error = Some(error);
+    }
+    
+    pub fn error(&self) -> Option<f64> {
+        self.error
+    }
+    
+    pub fn genome(&self) -> &T {
+        &self.genome
+    }
+
+    pub fn mut_genome(&mut self) -> &mut T {
+        self.should_mutate = false;
+        self.error = None;
+        &mut self.genome
+    }
+}
+
 pub struct World {
-    rng: Pcg32,
+    pub rng: Pcg32,
 }
 
 //Normal Genome
@@ -64,31 +116,74 @@ impl World {
         }
     }
 
-    pub fn crossover(&mut self, population: &mut Vec<Genome>) {
-        let inital_len = population.len();
+    pub fn crossover(&mut self, population: &mut Vec<Creature<Genome>>, children: usize, breed_rate: f64) {
 
-        for i in 0..inital_len {
-            for j in i + 1..inital_len {
-                if i == j {
-                    continue;
-                }
-                let (a_child, b_child) = self.random_breed(&population[i], &population[j]);
+        let fitness : Vec<f64> = population.iter().map(|x| x.error().unwrap()).map(|e| 1.0 / (1.0+e)).collect();
+
+        let mean = fitness.iter().sum::<f64>() / fitness.len() as f64;
+        let std = (fitness.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / fitness.len() as f64).sqrt();
+
+        let exp : Vec<f64> = fitness.iter().map(|x| 1.0 + (x - mean)/(2.0 * std)).collect();
+        let max : f64 = exp.iter().sum();
+
+        let rng_values = (0..children).map(|_| self.rng.gen_range(0f64..max)).sorted_by(|a, b| a.partial_cmp(&b).unwrap());
+
+        let mut selection_index = 0;
+
+        let mut selection = Vec::new();
+
+        let mut cum_exp : f64 = 0.0;
+
+        for value in rng_values{
+            while value > cum_exp{
+                cum_exp += exp[selection_index];
+                selection_index += 1;
+            }
+            selection.push(selection_index - 1);
+        }
+
+        selection.shuffle(&mut self.rng);
+
+
+        for i in 0..selection.len() / 2 {
+
+            let a = selection[2 * i];
+            let b = selection[2 * i + 1];
+            
+            if a == b || self.rng.gen_bool(1.0 - breed_rate) {
+
+                let a_child = Creature::new_mutant(population[a].genome().clone());
+                let b_child = Creature::new_mutant(population[a].genome().clone());
+
+                population.push(a_child);
+                population.push(b_child);
+
+                continue;
+            }
+            else{
+                let (a_genome, b_genome) = self.random_breed(population[a].genome(), population[b].genome());
+
+                let a_child = Creature::new(a_genome);
+                let b_child = Creature::new(b_genome);
+
                 population.push(a_child);
                 population.push(b_child);
             }
         }
+
     }
 
     pub fn mutate(
         &mut self,
-        population: &mut Vec<Genome>,
+        population: &mut Vec<Creature<Genome>>,
         genome_rate: f64,
         dna_rate: f64,
         heat: f64,
+        adult_size: usize,
     ) {
-        for genome in population.iter_mut().skip(1) {
-            if self.rng.gen_bool(genome_rate) {
-                self.mutate_genome(genome, dna_rate, heat);
+        for creature in population.iter_mut().skip(adult_size) {
+            if creature.should_mutate || self.rng.gen_bool(genome_rate) {
+                self.mutate_genome(creature.mut_genome(), dna_rate, heat);
             }
         }
     }
@@ -391,7 +486,7 @@ impl World {
 
 //General Functions
 impl World {
-    fn mutate_vec(
+    pub fn mutate_vec(
         &mut self,
         vec: &mut Vec<f64>,
         rate: f64,
@@ -406,7 +501,7 @@ impl World {
         }
     }
 
-    fn mutate_value(
+    pub fn mutate_value(
         &mut self,
         item: &mut f64,
         rate: f64,

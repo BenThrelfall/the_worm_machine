@@ -2,6 +2,9 @@ use itertools::izip;
 
 use crate::data::{self, Frame};
 
+const SYN_RISE: f64 = 1.0;
+const SYN_DECAY: f64 = 2.0;
+
 pub struct Network {
     pub syn_co: Vec<f64>,
     pub syn_int: Vec<f64>,
@@ -200,8 +203,17 @@ impl Network {
 
             for index in indices {
                 if *index < frame_a.data.len() {
-                    voltage[*index] =
-                        frame_a.data[*index] * (1.0 - dist) + frame_b.data[*index] * dist;
+
+                    //let lerp = frame_a.data[*index] * (1.0 - dist) + frame_b.data[*index] * dist;
+
+                    //No Lerp
+                    let lerp = frame_a.data[*index];
+
+                    // Replacing previous voltage
+                    //voltage[*index] = frame_a.data[*index] * (1.0 - dist) + frame_b.data[*index] * dist;
+
+                    //Input to voltage
+                    voltage[*index] += lerp * timestep;
                 }
             }
 
@@ -269,14 +281,25 @@ impl Network {
 
         let delta_voltage =
             izip!(leak_current, syn_current, gap_current).map(|(l, s, g)| (-l - s - g) * timestep);
-        let new_gates: Vec<f64> = izip!(&voltage, &self.gate_beta, &self.gate_adjust)
-            .map(|(v, b, a)| Self::direct_s(*v, *b, *a))
+
+        let delta_gates = izip!(&gates, &voltage, &self.gate_beta, &self.gate_adjust)
+                                .map(|(g, v, b, a)| Self::delta_s(*g, *v, *b, *a) * timestep); 
+
+        let new_gates: Vec<f64> = izip!(&gates, delta_gates)
+            .map(|(g, dg)| g + dg)
             .collect();
+        
+
         let new_voltage = izip!(&voltage, delta_voltage, v_inf)
-            .map(|(volt, del, inf)| volt + del.clamp(-(volt - inf).abs(), (volt - inf).abs()))
+            .map(|(volt, del, inf)| volt + del /* .clamp(-(volt - inf).abs(), (volt - inf).abs()) */)
             .collect();
 
         return (new_voltage, new_gates);
+    }
+
+    fn delta_s(gate_value: f64, voltage: f64, beta: f64, adjust: f64) -> f64{
+        let sigmoid = 1.0 / (1.0 + (-beta * (voltage - adjust)).exp());
+        return SYN_RISE * sigmoid * (1.0 - gate_value) - SYN_DECAY * gate_value;
     }
 
     fn direct_s(voltage: f64, beta: f64, adjust: f64) -> f64 {
