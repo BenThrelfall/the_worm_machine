@@ -210,7 +210,7 @@ class NeuronNetwork:
             self.gap_store.append(gap_current.copy())
             self.V_inf_store.append(V_infinity.copy())
     
-    def adv_run(self, delta_t, run_time, current_gen, show_progress=True):
+    def adv_run(self, delta_t, run_time, current_gen, show_progress=True, limiter=True):
 
         time_range = int(run_time / delta_t)
 
@@ -219,7 +219,7 @@ class NeuronNetwork:
                 print("#", end="")
                 
             input_current = current_gen(self.time)
-            self.step(delta_t, input_current)
+            self.step(delta_t, input_current, limiter=limiter)
 
     def simple_run(self, delta_t, run_time, show_progress=True, limiter=True, direct_s=False):
         time_range = int(run_time / delta_t)
