@@ -186,11 +186,7 @@ pub fn gate_calculation() {
 pub fn plm_test_run() {
     let (_, full_syn_g, full_gap_g, full_syn_e, _) = read_data();
 
-    let no_gap_g = vec![ vec![0.0; 280] ; 280];
-    let no_syn_g = vec![ vec![0.0; 280] ; 280];
-    let no_syn_e = vec![ vec![0.0; 280] ; 280];
-
-    let factory = Factory::new(&no_syn_g, &no_gap_g);
+    let factory = Factory::new(&full_syn_g, &full_gap_g);
     let specification = factory.get_specification();
 
     let syn_types: Vec<SynapseType> = full_syn_e
@@ -226,27 +222,46 @@ pub fn plm_test_run() {
     let multiplier = 1.0;
     let adjust = 0.0;
 
-    let mut model = factory.build_with_calc_gates(genome.expand(&specification));
+    let mut expanded_genome = genome.expand(&specification);
 
-    let voltage: Vec<f64> = (0..specification.model_len).map(|_| -35.0).collect();
+    println!("before: {} {}", expanded_genome.flat_gap_g.len(), expanded_genome.flat_syn_g.len());
+
+    expanded_genome.flat_gap_g = full_gap_g.iter().flatten().map(|x| *x).filter(|x| *x != 0.0).collect();
+    expanded_genome.flat_syn_g = full_syn_g.iter().flatten().map(|x| *x).filter(|x| *x != 0.0).collect();
+
+    println!("after: {} {}", expanded_genome.flat_gap_g.len(), expanded_genome.flat_syn_g.len());
+
+    let mut model = factory.build_with_calc_gates(expanded_genome);
+
+    let voltage: Vec<f64> = (0..specification.model_len).map(|_| -5.0).collect();
     let gates: Vec<f64> = (0..specification.model_len).map(|_| 0.1).collect();
 
-    let time_trace: Vec<Frame> = (0..30)
+    let (voltage, gates) = model.run(voltage, gates, 0.0001, 5.0);
+
+    let equil = voltage.clone();
+
+    let time_trace: Vec<Frame> = (0..50)
         .map(|x| Frame {
-            time: 0.25 * x as f64,
+            time: 10.0 * x as f64,
             data: (0..280)
-                .map(|i| if i == 128 { if x % 2 == 0 {1000.0} else {0.0} } else { 0.0 })
+                .map(|i| {
+                    if i == 187 || i == 188 {
+                        100000000.0
+                    } else {
+                        0.0
+                    }
+                })
                 .collect(),
         })
         .collect();
 
-    let sensory_indices = vec![128];
+    let sensory_indices = vec![187, 188];
 
     let result = model.recorded_run_sensory(
         voltage,
         gates,
-        0.00001,
-        1.0,
+        0.0001,
+        20.0,
         &time_trace,
         multiplier,
         adjust,
@@ -256,7 +271,11 @@ pub fn plm_test_run() {
 
     println!("{}", result.error);
 
-    let file = File::create("results/ashr_isolated_test_run.json").unwrap();
+    let file = File::create("results/con2_plm_equil.json").unwrap();
+    let buffer = BufWriter::new(file);
+    serde_json::to_writer(buffer, &equil).unwrap();
+
+    let file = File::create("results/con2_plm_test_run.json").unwrap();
     let buffer = BufWriter::new(file);
     serde_json::to_writer(buffer, &result.volt_record).unwrap();
 }

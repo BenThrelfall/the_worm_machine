@@ -1,4 +1,5 @@
 use itertools::izip;
+use nalgebra::ComplexField;
 
 use crate::data::{self, Frame};
 
@@ -289,9 +290,12 @@ impl Network {
             .map(|(g, dg)| g + dg)
             .collect();
         
+        if voltage[0].abs() > 10000.0{
+            panic!("Voltage is too large");
+        }
 
         let new_voltage = izip!(&voltage, delta_voltage, v_inf)
-            .map(|(volt, del, inf)| volt + del /* .clamp(-(volt - inf).abs(), (volt - inf).abs()) */)
+            .map(|(volt, del, inf)| volt + del.clamp(-(volt - inf).abs(), (volt - inf).abs()))
             .collect();
 
         return (new_voltage, new_gates);

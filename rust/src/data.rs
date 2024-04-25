@@ -37,7 +37,7 @@ pub fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>, 
     let buffer = BufReader::new(file);
     time_trace = serde_json::from_reader(buffer).unwrap();
 
-    let file = File::open("processed_data/default_g_syn.json").unwrap();
+    let file = File::open("processed_data/new_g_syn.json").unwrap();
     let buffer = BufReader::new(file);
     flat_g_syn = serde_json::from_reader(buffer).unwrap();
 
@@ -45,7 +45,7 @@ pub fn read_data() -> (Vec<Frame>, Vec<Vec<f64>>, Vec<Vec<f64>>, Vec<Vec<f64>>, 
     let buffer = BufReader::new(file);
     flat_e_syn = serde_json::from_reader(buffer).unwrap();
 
-    let file = File::open("processed_data/default_g_gap.json").unwrap();
+    let file = File::open("processed_data/new_g_gap.json").unwrap();
     let buffer = BufReader::new(file);
     flat_g_gap = serde_json::from_reader(buffer).unwrap();
 
