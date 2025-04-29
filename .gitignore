@@ -1,8 +1,13 @@
 __pycache__/
 .virtual_documents/
+.ipynb_checkpoints
 rust/debug/
 rust/target/
 Cargo.lock
 **/*.rs.bk
 rust/processed_data/
 rust/results/
+rust/data_files/
+rust/final_results/
+img/
+checkpoints/

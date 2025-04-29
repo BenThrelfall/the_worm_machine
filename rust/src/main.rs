@@ -13,7 +13,8 @@ fn main() {
 
     //programs::evolutionary_training_no_calc_gates();
     //programs::evolutionary_training();
-    programs::plm_test_run();    
-    //programs::gate_calculation();
+    //programs::plm_test_run();    
+    programs::gate_calculation();
     //programs::small_evolutionary_training();
+    //programs::two_node_patch_clamping();
 }

@@ -121,7 +121,11 @@ impl World {
         let fitness : Vec<f64> = population.iter().map(|x| x.error().unwrap()).map(|e| 1.0 / (1.0+e)).collect();
 
         let mean = fitness.iter().sum::<f64>() / fitness.len() as f64;
-        let std = (fitness.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / fitness.len() as f64).sqrt();
+        let mut std = (fitness.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / fitness.len() as f64).sqrt();
+
+        if std == 0.0{
+            std = 0.5;
+        }
 
         let exp : Vec<f64> = fitness.iter().map(|x| 1.0 + (x - mean)/(2.0 * std)).collect();
         let max : f64 = exp.iter().sum();
@@ -153,7 +157,7 @@ impl World {
             if a == b || self.rng.gen_bool(1.0 - breed_rate) {
 
                 let a_child = Creature::new_mutant(population[a].genome().clone());
-                let b_child = Creature::new_mutant(population[a].genome().clone());
+                let b_child = Creature::new_mutant(population[b].genome().clone());
 
                 population.push(a_child);
                 population.push(b_child);
